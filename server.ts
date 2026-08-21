@@ -97,8 +97,8 @@ async function startServer() {
 
   // Configure CORS to allow the frontend origin (and localhost for dev)
   const allowedOrigins = [
-    'https://adaptive-iq-u83e.vercel.app',
-    'https://adaptiveiq.onrender.com',
+    'https://edu-quiz-ai-one.vercel.app/',
+    'https://eduquiz-ai-knia.onrender.com',
     'http://localhost:3000',
     'http://localhost:5173',
     'http://127.0.0.1:5173',

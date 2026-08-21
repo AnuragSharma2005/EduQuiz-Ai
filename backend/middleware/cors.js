@@ -6,8 +6,8 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5174',
-  'https://adaptive-iq-u83e.vercel.app',
-  'https://adaptiveiq.onrender.com',
+  'https://edu-quiz-ai-one.vercel.app/',
+  'https://eduquiz-ai-knia.onrender.com',
 ];
 
 // Add CLIENT_URL from env if provided (for production deployments)

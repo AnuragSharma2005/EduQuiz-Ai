@@ -8,7 +8,7 @@ export function getBackendOrigin(): string {
 
     if (typeof window === 'undefined') {
       // default for non-browser environments
-      return 'https://adaptiveiq.onrender.com';
+      return 'https://eduquiz-ai-knia.onrender.com';
     }
 
     const host = window.location.hostname;
@@ -24,9 +24,9 @@ export function getBackendOrigin(): string {
     }
 
     // Otherwise use deployed backend
-    return 'https://adaptiveiq.onrender.com';
+    return 'https://eduquiz-ai-knia.onrender.com';
   } catch (err) {
-    return 'https://adaptiveiq.onrender.com';
+    return 'https://eduquiz-ai-knia.onrender.com';
   }
 }
 
