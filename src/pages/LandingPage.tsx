@@ -26,6 +26,8 @@ import { Button, Input, Card } from '../components/UI';
 import { ParticleBackground } from '../components/ParticleBackground';
 import { AVATARS, cn } from '../utils/constants';
 import { useGameStore } from '../store/useGameStore';
+import { useStudentStore } from '../student/studentStore';
+import { useTeacherStore } from '../teacher/teacherStore';
 import { useAuth } from '../context/AuthContext';
 import socket from '../services/socket';
 import { PortalModal } from '../admin/PortalModal';
@@ -150,6 +152,8 @@ const GameModeCard = ({ icon: Icon, title, desc, color }: any) => (
 export const LandingPage = () => {
   const navigate = useNavigate();
   const { setMe, setRoomCode } = useGameStore();
+  const { isStudentAuth } = useStudentStore();
+  const { isTeacherAuth } = useTeacherStore();
   const { user, isAuthenticated, logout } = useAuth();
   const [showHostOptions, setShowHostOptions] = useState(false);
   const [roomCode, setRoomCodeInput] = useState('');
@@ -166,7 +170,16 @@ export const LandingPage = () => {
   }, []);
 
   const handleJoin = () => {
-    if (!username || !roomCode) return;
+    // If student is not logged in, navigate to student login portal
+    if (!isStudentAuth) {
+      navigate('/student');
+      return;
+    }
+
+    if (!username || !roomCode) {
+      navigate('/student');
+      return;
+    }
 
     const newPlayer = {
       id: Math.random().toString(36).substr(2, 9),
@@ -181,6 +194,13 @@ export const LandingPage = () => {
     setRoomCode(roomCode);
     socket.emit('join_room', { roomCode, player: newPlayer });
     navigate(`/lobby/${roomCode}`);
+  };
+
+  const handleHostGame = () => {
+    // Navigate to /teacher:
+    // If teacher is logged in -> opens Teacher Dashboard directly
+    // If teacher is NOT logged in -> opens Teacher Login Modal, then dashboard upon successful login
+    navigate('/teacher');
   };
 
   const floatingAvatars = useMemo(() => [
@@ -200,36 +220,36 @@ export const LandingPage = () => {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-black/20 border-b border-white/5"
+        className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-black/40 border-b border-white/10"
       >
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           {/* Logo */}
           <motion.h1
-            className="text-2xl font-black italic cursor-pointer"
+            className="text-xl sm:text-2xl font-black italic cursor-pointer shrink-0"
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           >
             <span className="bg-gradient-to-r from-indigo-400 to-pink-400 bg-clip-text text-transparent">
-              AdaptiveIQ
+              EduQuiz
             </span>
           </motion.h1>
 
           {/* Auth & Portal Buttons */}
           {isAuthenticated ? (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               {/* Admin Panel Quick Link */}
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => navigate('/admin')}
-                className="px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-bold hover:bg-indigo-500/30 transition-all flex items-center gap-1.5"
+                className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-[11px] sm:text-xs font-bold hover:bg-indigo-500/30 transition-all flex items-center gap-1 shrink-0"
               >
-                ⚙️ Admin Panel
+                ⚙️ <span className="hidden sm:inline">Admin Panel</span><span className="sm:hidden">Admin</span>
               </motion.button>
 
               {/* User Profile Button */}
               <motion.span
                 whileHover={{ scale: 1.05 }}
-                className="text-sm font-bold text-indigo-300"
+                className="text-xs sm:text-sm font-bold text-indigo-300 truncate max-w-[100px] sm:max-w-none"
               >
                 👤 {user?.username}
               </motion.span>
@@ -242,15 +262,15 @@ export const LandingPage = () => {
                   await logout();
                   navigate('/');
                 }}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-500/10 border border-rose-500/30 hover:border-rose-500/60 hover:bg-rose-500/20 transition-all"
+                className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-rose-500/10 border border-rose-500/30 hover:border-rose-500/60 hover:bg-rose-500/20 transition-all shrink-0"
               >
-                <LogOut size={16} className="text-rose-400" />
-                <span className="text-sm font-bold text-rose-400">Logout</span>
+                <LogOut size={14} className="text-rose-400" />
+                <span className="text-xs sm:text-sm font-bold text-rose-400">Logout</span>
               </motion.button>
             </div>
           ) : (
-            <div className="flex items-center gap-3">
-              <Button onClick={() => setIsPortalModalOpen(true)} size="sm">
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setIsPortalModalOpen(true)} size="sm" className="!px-3 sm:!px-4 !py-1.5 text-xs sm:text-sm whitespace-nowrap cursor-pointer">
                 🔑 Login / Select Portal
               </Button>
             </div>
@@ -262,11 +282,11 @@ export const LandingPage = () => {
       <PortalModal isOpen={isPortalModalOpen} onClose={() => setIsPortalModalOpen(false)} />
 
       {/* Add padding to push content down */}
-      <div className="h-20" />
+      <div className="h-16 sm:h-20" />
 
       {/* Cursor Glow */}
       <div
-        className="fixed pointer-events-none z-50 w-[400px] h-[400px] rounded-full bg-indigo-600/10 blur-[100px] -translate-x-1/2 -translate-y-1/2 transition-transform duration-100"
+        className="fixed pointer-events-none z-50 w-[300px] sm:w-[400px] h-[300px] sm:h-[400px] rounded-full bg-indigo-600/10 blur-[100px] -translate-x-1/2 -translate-y-1/2 transition-transform duration-100"
         style={{ left: mousePos.x, top: mousePos.y }}
       />
 
@@ -276,7 +296,7 @@ export const LandingPage = () => {
       ))}
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-20">
+      <section className="relative min-h-[calc(100vh-5rem)] flex flex-col items-center justify-center px-4 sm:px-6 pt-8 sm:pt-16 pb-12">
         {/* Animated Grid */}
         <div className="absolute inset-0 z-0 opacity-10 pointer-events-none"
           style={{
@@ -290,31 +310,31 @@ export const LandingPage = () => {
           initial={{ y: 50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-10 text-center mb-16"
+          className="relative z-10 text-center mb-8 sm:mb-14 w-full"
         >
           <motion.div
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ duration: 4, repeat: Infinity }}
-            className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-black uppercase tracking-[0.3em] mb-8 shadow-[0_0_30px_rgba(99,102,241,0.3)]"
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-6 py-1.5 sm:py-2 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-[0.3em] mb-4 sm:mb-8 shadow-[0_0_30px_rgba(99,102,241,0.3)] max-w-[95vw] truncate"
           >
-            <Activity size={14} className="animate-pulse" />
-            <span>Real-Time Multiplayer Quiz Battles</span>
+            <Activity size={14} className="animate-pulse shrink-0" />
+            <span className="truncate">Real-Time Multiplayer Quiz Battles</span>
           </motion.div>
 
-          <h1 className="text-8xl md:text-[12rem] font-black tracking-tighter mb-4 leading-none select-none italic">
-            <span className="bg-gradient-to-b from-white via-white to-indigo-500/50 bg-clip-text text-transparent">Adaptive</span>
+          <h1 className="text-5xl sm:text-7xl md:text-9xl lg:text-[11rem] font-black tracking-tighter mb-3 sm:mb-4 leading-none select-none italic break-words">
+            <span className="bg-gradient-to-b from-white via-white to-indigo-500/50 bg-clip-text text-transparent">Edu</span>
             <motion.span
               animate={{ opacity: [1, 0.8, 1], scale: [1, 1.02, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
               className="text-indigo-500 drop-shadow-[0_0_40px_rgba(99,102,241,0.6)]"
             >
-              IQ
+              Quiz
             </motion.span>
           </h1>
 
-          <p className="text-lg md:text-2xl text-white/40 max-w-2xl mx-auto font-medium tracking-tight">
-            Enter the arena. Outsmart the competition. <br />
-            <span className="text-white/80">The ultimate AI-powered battleground.</span>
+          <p className="text-xs sm:text-lg md:text-2xl text-white/50 max-w-2xl mx-auto font-medium tracking-tight px-2">
+            Enter the arena. Outsmart the competition. <br className="hidden sm:block" />
+            <span className="text-white/90">The ultimate AI-powered battleground.</span>
           </p>
         </motion.div>
 
@@ -323,17 +343,17 @@ export const LandingPage = () => {
           initial={{ scale: 0.9, opacity: 0, y: 50 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.8 }}
-          className="relative z-20 w-full max-w-xl"
+          className="relative z-20 w-full max-w-xl px-1 sm:px-0"
         >
-          <Card className="p-1 !bg-white/5 backdrop-blur-3xl border-white/10 rounded-[40px] shadow-2xl overflow-hidden group">
+          <Card className="p-1 !bg-white/5 backdrop-blur-3xl border-white/10 rounded-[28px] sm:rounded-[40px] shadow-2xl overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/20 via-transparent to-pink-600/10 opacity-50" />
-            <div className="relative p-8 md:p-12">
-              <div className="flex items-center justify-between mb-10">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
-                    <Gamepad2 size={20} className="text-white" />
+            <div className="relative p-4 sm:p-8 md:p-12">
+              <div className="flex items-center justify-between mb-6 sm:mb-10">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <Gamepad2 size={18} className="text-white sm:w-5 sm:h-5" />
                   </div>
-                  <span className="text-sm font-black italic uppercase tracking-widest">Battle Terminal</span>
+                  <span className="text-xs sm:text-sm font-black italic uppercase tracking-widest">Battle Terminal</span>
                 </div>
                 <div className="flex gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
@@ -342,11 +362,11 @@ export const LandingPage = () => {
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row gap-6 items-center">
+              <div className="space-y-4 sm:space-y-6">
+                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center">
                   <div className="relative group/avatar cursor-pointer" onClick={() => navigate('/join')}>
-                    <div className="w-24 h-24 rounded-[2rem] bg-indigo-500/10 border-2 border-dashed border-indigo-500/30 flex items-center justify-center overflow-hidden group-hover/avatar:border-indigo-500 transition-colors">
-                      <img src={AVATARS[0]} className="w-20 h-20 rounded-2xl" alt="Preview" referrerPolicy="no-referrer" />
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl sm:rounded-[2rem] bg-indigo-500/10 border-2 border-dashed border-indigo-500/30 flex items-center justify-center overflow-hidden group-hover/avatar:border-indigo-500 transition-colors">
+                      <img src={AVATARS[0]} className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl" alt="Preview" referrerPolicy="no-referrer" />
                     </div>
                     <div className="absolute -bottom-2 -right-2 bg-indigo-600 p-1.5 rounded-lg shadow-lg">
                       <PlusCircle size={14} />
@@ -387,8 +407,8 @@ export const LandingPage = () => {
                       <Button
                         size="xl"
                         onClick={handleJoin}
-                        disabled={!username || !roomCode}
-                        className="w-full !rounded-2xl bg-indigo-600 hover:bg-indigo-500 shadow-[0_0_30px_rgba(79,70,229,0.4)] group"
+                        disabled={isStudentAuth && (!username || !roomCode)}
+                        className="w-full !rounded-2xl bg-indigo-600 hover:bg-indigo-500 shadow-[0_0_30px_rgba(79,70,229,0.4)] group cursor-pointer"
                       >
                         <Sword size={20} className="group-hover:rotate-12 transition-transform" />
                         Join Battle
@@ -396,8 +416,8 @@ export const LandingPage = () => {
                       <Button
                         size="xl"
                         variant="ghost"
-                        onClick={() => setShowHostOptions(true)}
-                        className="w-full !rounded-2xl border border-white/5 hover:bg-white/5"
+                        onClick={handleHostGame}
+                        className="w-full !rounded-2xl border border-white/5 hover:bg-white/5 cursor-pointer"
                       >
                         Host Game
                       </Button>
@@ -445,14 +465,14 @@ export const LandingPage = () => {
       </section>
 
       {/* Game Modes Section */}
-      <section className="py-32 px-6 max-w-7xl mx-auto">
-        <div className="flex flex-col items-center mb-20 text-center">
-          <h2 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter mb-4">Select Your Mode</h2>
-          <div className="w-24 h-1 bg-indigo-500 rounded-full mb-6" />
-          <p className="text-white/40 font-medium max-w-xl">Choose how you want to dominate. From classic trivia to AI-driven adaptive challenges.</p>
+      <section className="py-16 sm:py-32 px-4 sm:px-6 max-w-7xl mx-auto">
+        <div className="flex flex-col items-center mb-12 sm:mb-20 text-center">
+          <h2 className="text-3xl sm:text-5xl md:text-7xl font-black italic uppercase tracking-tighter mb-3 sm:mb-4">Select Your Mode</h2>
+          <div className="w-16 sm:w-24 h-1 bg-indigo-500 rounded-full mb-4 sm:mb-6" />
+          <p className="text-white/50 font-medium text-xs sm:text-base max-w-xl px-2">Choose how you want to dominate. From classic trivia to AI-driven adaptive challenges.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           <GameModeCard
             icon={Zap}
             title="Classic Quiz"
@@ -475,8 +495,8 @@ export const LandingPage = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-32 px-6 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <section className="py-16 sm:py-32 px-4 sm:px-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           <FeatureCard
             icon={Shield}
             title="Adaptive Difficulty"
@@ -499,21 +519,21 @@ export const LandingPage = () => {
       </section>
 
       {/* Live Leaderboard Preview */}
-      <section className="py-32 px-6 max-w-4xl mx-auto text-center">
+      <section className="py-16 sm:py-32 px-3 sm:px-6 max-w-4xl mx-auto text-center">
         <motion.div
           initial={{ y: 50, opacity: 0 }}
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: true }}
-          className="bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[40px] p-12 relative overflow-hidden"
+          className="bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[28px] sm:rounded-[40px] p-4 sm:p-8 md:p-12 relative overflow-hidden"
         >
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent" />
 
-          <div className="flex items-center justify-center gap-3 mb-12">
-            <Trophy className="text-yellow-500" size={32} />
-            <h2 className="text-4xl font-black italic uppercase tracking-tighter">Hall of Fame</h2>
+          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-6 sm:mb-12">
+            <Trophy className="text-yellow-500 w-6 h-6 sm:w-8 sm:h-8" />
+            <h2 className="text-2xl sm:text-4xl font-black italic uppercase tracking-tighter">Hall of Fame</h2>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {[
               { name: 'Aryan_IQ', score: 9500, avatar: AVATARS[0], trend: 'up' },
               { name: 'Riya_Master', score: 9100, avatar: AVATARS[1], trend: 'up' },
@@ -524,31 +544,31 @@ export const LandingPage = () => {
                 initial={{ x: -20, opacity: 0 }}
                 whileInView={{ x: 0, opacity: 1 }}
                 transition={{ delay: i * 0.1 }}
-                className="flex items-center gap-4 p-5 bg-white/5 rounded-2xl border border-white/5 group hover:bg-white/10 transition-all"
+                className="flex items-center gap-2.5 sm:gap-4 p-3 sm:p-5 bg-white/5 rounded-2xl border border-white/5 group hover:bg-white/10 transition-all overflow-hidden"
               >
                 <div className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center font-black text-black",
+                  "w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-black text-black text-xs sm:text-base shrink-0",
                   i === 0 ? "bg-yellow-500" : i === 1 ? "bg-slate-300" : "bg-amber-600"
                 )}>
                   {i + 1}
                 </div>
-                <img src={p.avatar} className="w-12 h-12 rounded-xl" referrerPolicy="no-referrer" />
-                <div className="flex-1 text-left">
-                  <div className="font-black italic uppercase tracking-widest text-sm">{p.name}</div>
-                  <div className="text-[10px] text-white/40 font-bold">LEGENDARY STATUS</div>
+                <img src={p.avatar} className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl shrink-0" referrerPolicy="no-referrer" />
+                <div className="flex-1 text-left min-w-0">
+                  <div className="font-black italic uppercase tracking-wider text-xs sm:text-sm truncate">{p.name}</div>
+                  <div className="text-[9px] sm:text-[10px] text-white/40 font-bold truncate">LEGENDARY STATUS</div>
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-black text-indigo-400">{p.score}</div>
-                  <div className="text-[9px] text-emerald-400 font-black uppercase flex items-center justify-end gap-1">
+                <div className="text-right shrink-0 pl-1">
+                  <div className="text-base sm:text-2xl font-black text-indigo-400 font-mono">{p.score}</div>
+                  <div className="text-[8px] sm:text-[9px] text-emerald-400 font-black uppercase flex items-center justify-end gap-0.5 sm:gap-1">
                     <Flame size={10} />
-                    On Fire
+                    <span>On Fire</span>
                   </div>
                 </div>
               </motion.div>
             ))}
           </div>
 
-          <Button variant="ghost" className="mt-12 text-white/40 hover:text-white">
+          <Button variant="ghost" className="mt-8 sm:mt-12 text-white/50 hover:text-white text-xs sm:text-sm">
             View Global Rankings
             <ChevronRight size={16} />
           </Button>
@@ -561,14 +581,14 @@ export const LandingPage = () => {
           <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
             <Zap size={16} className="text-white" />
           </div>
-          <span className="text-xl font-black italic uppercase tracking-tighter">AdaptiveIQ</span>
+          <span className="text-xl font-black italic uppercase tracking-tighter">EduQuiz</span>
         </div>
         <p className="text-white/20 text-xs font-bold uppercase tracking-[0.5em] mb-8">The Future of Competitive Learning</p>
         <div className="flex justify-center gap-8 text-white/40 text-[10px] font-black uppercase tracking-widest">
-          <a href="#" className="hover:text-indigo-400 transition-colors">Privacy</a>
-          <a href="#" className="hover:text-indigo-400 transition-colors">Terms</a>
-          <a href="#" className="hover:text-indigo-400 transition-colors">Support</a>
-          <a href="#" className="hover:text-indigo-400 transition-colors">Discord</a>
+          <a href="#" className="hover:text-sky-400 transition-colors">Privacy</a>
+          <a href="#" className="hover:text-sky-400 transition-colors">Terms</a>
+          <a href="#" className="hover:text-sky-400 transition-colors">Support</a>
+          <button onClick={() => navigate('/admin')} className="hover:text-sky-400 transition-colors cursor-pointer">Admin Portal</button>
         </div>
       </footer>
     </div>

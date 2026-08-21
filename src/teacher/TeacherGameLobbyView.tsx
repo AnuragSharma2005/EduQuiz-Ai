@@ -61,23 +61,23 @@ export const TeacherGameLobbyView: React.FC = () => {
 
   if (!activeSession) {
     return (
-      <div className="max-w-4xl mx-auto py-16 px-6 text-center space-y-6 bg-white rounded-3xl border border-slate-200 shadow-xs">
-        <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto border border-indigo-200/60 shadow-inner">
+      <div className="max-w-4xl mx-auto py-16 px-6 text-center space-y-6 bg-[#070e28]/90 rounded-3xl border border-sky-500/30 shadow-xl shadow-sky-950/40 backdrop-blur-2xl text-white">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-600/20 text-indigo-300 flex items-center justify-center mx-auto border border-indigo-400/30 shadow-inner font-bold">
           <Users size={32} />
         </div>
 
         <div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">No Game Lobby Active</h2>
-          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mt-2 leading-relaxed">
+          <h2 className="text-2xl font-black text-white tracking-tight">No Game Lobby Active</h2>
+          <p className="text-xs sm:text-sm text-sky-200/70 max-w-md mx-auto mt-2 leading-relaxed font-medium">
             There is no active lobby right now. Start an assessment from your Control Center to generate a room code and QR code.
           </p>
         </div>
 
         <button
           onClick={() => setSelectedTab('dashboard')}
-          className="px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
+          className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/30 transition-all cursor-pointer inline-flex items-center gap-2"
         >
-          ← Go to Control Center
+          <span>← Go to Control Center</span>
         </button>
       </div>
     );

@@ -87,15 +87,15 @@ export const CreateAssessmentView: React.FC = () => {
         <div className="flex items-center gap-4">
           <button
             onClick={() => setSelectedTab('dashboard')}
-            className="p-2.5 rounded-2xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="p-2.5 rounded-2xl bg-[#070e28] border border-sky-500/30 text-sky-300 hover:text-white hover:bg-sky-500/20 transition-colors cursor-pointer"
           >
             <ArrowLeft size={18} />
           </button>
           <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-2">
               CREATE QUIZ
             </h1>
-            <p className="text-xs font-medium text-slate-500 mt-0.5">
+            <p className="text-xs font-medium text-sky-200/70 mt-0.5">
               Build your custom battle arena & assessments
             </p>
           </div>

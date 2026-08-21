@@ -7,25 +7,60 @@
 
 @layer base {
   body {
-    @apply bg-[#050505] text-white selection:bg-indigo-500/30;
+    background-color: #030712;
+    color: #ffffff;
+    selection-background-color: rgba(56, 189, 248, 0.3);
+    font-family: var(--font-sans);
+    overflow-x: hidden;
   }
 }
 
-@layer components {
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+/* Custom Unified Aesthetics & Glow Utilities */
+.bg-theme-gradient {
+  background: radial-gradient(circle at 50% 0%, #0c1938 0%, #030712 100%);
+}
+
+.bg-blue-grid {
+  background-image: 
+    linear-gradient(to right, rgba(56, 189, 248, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 189, 248, 0.07) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+.glass-card-blue {
+  background: rgba(8, 15, 38, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-card-blue:hover {
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 10px 40px -10px rgba(56, 189, 248, 0.25);
+}
+
+.glow-text-blue {
+  text-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+}
+
+.glow-box-blue {
+  box-shadow: 0 0 30px -5px rgba(56, 189, 248, 0.3);
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-20px); }
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-15px) rotate(1deg); }
 }
 
 .animate-float {
   animation: float 6s ease-in-out infinite;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

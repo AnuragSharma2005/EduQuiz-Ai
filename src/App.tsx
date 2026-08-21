@@ -12,6 +12,7 @@ import { AIGeneratorPage } from './pages/AIGeneratorPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { AdminLayout } from './admin/AdminLayout';
 import { TeacherLayout } from './teacher/TeacherLayout';
+import { StudentLayout } from './student/StudentLayout';
 import { useGameStore } from './store/useGameStore';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
@@ -49,6 +50,9 @@ const AnimatedRoutes = () => {
           }
         />
 
+
+        {/* Student Portal Route */}
+        <Route path="/student/*" element={<StudentLayout />} />
 
         {/* Admin Portal Route */}
         <Route path="/admin/*" element={<AdminLayout />} />

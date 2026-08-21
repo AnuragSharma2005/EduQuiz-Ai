@@ -138,7 +138,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onSucc
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-sm transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.3)] mt-2"
+              className="w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 mt-2 cursor-pointer"
             >
               <span>{loading ? 'Authenticating...' : 'Login to Admin Dashboard'}</span>
               <ArrowRight size={16} />

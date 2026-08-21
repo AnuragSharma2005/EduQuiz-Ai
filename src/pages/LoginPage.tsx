@@ -251,7 +251,7 @@ export const LoginPage = () => {
                   >
                     {mode === 'login' ? <LogIn size={28} /> : <UserPlus size={28} />}
                     <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-pink-400">
-                      {mode === 'login' ? 'Welcome Back' : 'Join AdaptiveIQ'}
+                      {mode === 'login' ? 'Welcome Back' : 'Join EduQuiz'}
                     </h1>
                   </motion.div>
                   <p className="text-white/50 text-sm">

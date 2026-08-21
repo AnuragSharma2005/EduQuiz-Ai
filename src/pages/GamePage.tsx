@@ -393,32 +393,32 @@ export const GamePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex flex-col">
-      <div className="sticky top-0 z-20 border-b border-white/10 bg-[#050505]/95 backdrop-blur-xl">
+    <div className="min-h-screen bg-[#030712] text-white flex flex-col relative overflow-hidden select-none">
+      <div className="sticky top-0 z-20 border-b border-sky-500/20 bg-[#050b1e]/95 backdrop-blur-xl">
         <div className="mx-auto grid max-w-5xl grid-cols-3 items-center gap-3 px-4 py-4 sm:px-6">
           <div className="flex flex-col gap-1">
-            <div className="inline-flex w-fit rounded-xl bg-indigo-500 px-3 py-1.5 text-sm font-black italic">Q{currentQuestionIndex + 1}</div>
-            <div className="hidden sm:block text-[10px] font-bold uppercase tracking-widest text-white/40">Current Quiz</div>
-            <div className="hidden sm:block truncate font-bold">{currentQuiz?.title}</div>
+            <div className="inline-flex w-fit rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-3 py-1.5 text-sm font-black italic text-white shadow-md shadow-sky-500/30">Q{currentQuestionIndex + 1}</div>
+            <div className="hidden sm:block text-[10px] font-bold uppercase tracking-widest text-sky-300/70">Current Quiz</div>
+            <div className="hidden sm:block truncate font-bold text-white">{currentQuiz?.title}</div>
           </div>
 
           <div className="flex justify-center">
             <div className="sm:block hidden">
               <QuizTimer current={timeLeft} total={currentQuestion?.timeLimit || 15} />
             </div>
-            <div className="sm:hidden rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-center">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-white/40">Time</div>
-              <div className="text-xl font-black text-indigo-400">{timeLeft}s</div>
+            <div className="sm:hidden rounded-2xl border border-sky-500/30 bg-[#070e28] px-3 py-2 text-center">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-sky-300/70">Time</div>
+              <div className="text-xl font-black text-sky-400">{timeLeft}s</div>
             </div>
           </div>
 
           <div className="flex justify-end">
-            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+            <div className="flex items-center gap-3 rounded-2xl border border-sky-500/30 bg-[#070e28] px-3 py-2 shadow-md">
               <div className="text-right">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-white/40">Score</div>
-                <div className="text-lg font-black text-indigo-400">{me?.score || 0}</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-sky-300/70">Score</div>
+                <div className="text-lg font-black text-sky-300">{me?.score || 0}</div>
               </div>
-              <Trophy className="text-yellow-500" />
+              <Trophy className="text-amber-400" />
             </div>
           </div>
         </div>

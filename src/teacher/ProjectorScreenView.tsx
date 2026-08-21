@@ -95,7 +95,7 @@ export const ProjectorScreenView: React.FC = () => {
 
           <button
             onClick={() => setSelectedTab('dashboard')}
-            className="px-8 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider shadow-xl shadow-blue-600/30 transition-all cursor-pointer"
+            className="px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-wider shadow-xl shadow-indigo-600/30 transition-all cursor-pointer"
           >
             ← Open Control Panel
           </button>

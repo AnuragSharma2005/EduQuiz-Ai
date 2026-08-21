@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
-import { Share2, Play, Settings, LogOut, Info, Users, QrCode, Copy, Pencil } from 'lucide-react';
+import { Share2, Play, Settings, LogOut, Info, Users, QrCode, Copy, Pencil, Sparkles } from 'lucide-react';
 import { Button, Card } from '../components/UI';
 import { PlayerCard } from '../components/PlayerCard';
-import { useGameStore } from '../store/useGameStore';
+import { useGameStore, Player } from '../store/useGameStore';
+import { useStudentStore } from '../student/studentStore';
 import socket from '../services/socket';
+import { ParticleBackground } from '../components/ParticleBackground';
 
 const DEFAULT_FALLBACK_QUIZ = {
   id: 'battle_quiz_default',
@@ -48,159 +50,142 @@ const DEFAULT_FALLBACK_QUIZ = {
 export const LobbyPage = () => {
   const { code } = useParams();
   const navigate = useNavigate();
-  const { players, me, setCurrentQuiz, currentQuiz, status } = useGameStore();
+  const {
+    currentQuiz,
+    players,
+    me,
+    setCurrentQuiz,
+    setStatus,
+    addPlayer,
+    setRoomCode
+  } = useGameStore();
+
+  const { isStudentAuth, currentStudent } = useStudentStore();
+
   const [qrDataUrl, setQrDataUrl] = useState('');
-  const contestants = players.filter((player) => !player.isHost);
-
-  const inviteLink = `${window.location.origin}/join?code=${code ?? ''}`;
 
   useEffect(() => {
-    if (me?.isHost && (!currentQuiz || !currentQuiz.questions || currentQuiz.questions.length === 0)) {
-      setCurrentQuiz(DEFAULT_FALLBACK_QUIZ);
-      if (code) {
-        socket.emit('set_quiz', { roomCode: code, quiz: DEFAULT_FALLBACK_QUIZ });
+    if (code) {
+      setRoomCode(code);
+    }
+  }, [code, setRoomCode]);
+
+  useEffect(() => {
+    let localPlayer = players.find(p => p.id === socket.id);
+    if (!localPlayer) {
+      localPlayer = {
+        id: socket.id || `st_${Date.now()}`,
+        username: isStudentAuth && currentStudent.name ? currentStudent.name : `Student_${Math.floor(1000 + Math.random() * 9000)}`,
+        score: 0,
+        isReady: true,
+        avatar: isStudentAuth && currentStudent.avatar ? currentStudent.avatar : `https://api.dicebear.com/7.x/avataaars/svg?seed=${socket.id || 'guest'}`,
+        isHost: false,
+      };
+      addPlayer(localPlayer);
+    }
+
+    if (code) {
+      socket.emit('join_room', { roomCode: code, player: localPlayer });
+    }
+  }, [code, players, addPlayer, isStudentAuth, currentStudent]);
+
+  useEffect(() => {
+    const handleRoomPlayers = (data: { players: any[] }) => {
+      if (Array.isArray(data.players)) {
+        data.players.forEach((p) => addPlayer(p));
       }
-    }
-  }, [currentQuiz, code, me?.isHost, setCurrentQuiz]);
-
-  useEffect(() => {
-    if (status === 'starting' || status === 'question') {
-      navigate(`/game/${code}`);
-    }
-  }, [status, navigate, code]);
-
-  useEffect(() => {
-    if (!code) return;
-
-    const storeState = useGameStore.getState();
-    const existingMe = storeState.me;
-    const playerToJoin = existingMe || {
-      id: 'player_' + Math.random().toString(36).substring(2, 7),
-      username: 'Player_' + Math.random().toString(36).substring(2, 6),
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-      score: 0,
-      isReady: false,
-      isHost: false,
     };
 
-    if (!existingMe) {
-      storeState.setMe(playerToJoin);
-    }
+    socket.on('room_players', handleRoomPlayers);
+    socket.on('player_joined', (p) => addPlayer(p));
 
-    const activeQuiz = (storeState.currentQuiz && storeState.currentQuiz.questions && storeState.currentQuiz.questions.length > 0)
-      ? storeState.currentQuiz
-      : undefined;
-
-    socket.emit('join_room', { roomCode: code, player: playerToJoin, quiz: playerToJoin.isHost ? activeQuiz : undefined });
-
-    const handleConnect = () => {
-      socket.emit('join_room', { roomCode: code, player: playerToJoin, quiz: playerToJoin.isHost ? activeQuiz : undefined });
-    };
-
-    socket.on('connect', handleConnect);
     return () => {
-      socket.off('connect', handleConnect);
+      socket.off('room_players', handleRoomPlayers);
+      socket.off('player_joined');
     };
-  }, [code]);
+  }, [addPlayer]);
+
+  const inviteLink = `${window.location.origin}/join/${code}`;
 
   useEffect(() => {
-    if (!code) return;
-
-    QRCode.toDataURL(inviteLink, {
-      width: 320,
-      margin: 1,
-      errorCorrectionLevel: 'M',
-      color: {
-        dark: '#ffffff',
-        light: '#00000000',
-      },
-    })
-      .then(setQrDataUrl)
-      .catch((error) => console.warn('Could not generate QR code:', error));
+    if (code) {
+      QRCode.toDataURL(inviteLink, { margin: 2, width: 280 })
+        .then((url) => setQrDataUrl(url))
+        .catch(() => setQrDataUrl(''));
+    }
   }, [code, inviteLink]);
 
   const handleStart = () => {
-    if (!me?.isHost) return;
-    const activeQuiz = (currentQuiz && currentQuiz.questions && currentQuiz.questions.length > 0)
-      ? currentQuiz
-      : DEFAULT_FALLBACK_QUIZ;
-
-    if (!currentQuiz || !currentQuiz.questions || currentQuiz.questions.length === 0) {
-      setCurrentQuiz(activeQuiz);
+    if (!currentQuiz) {
+      setCurrentQuiz(DEFAULT_FALLBACK_QUIZ);
     }
-
-    socket.emit('set_quiz', { roomCode: code, quiz: activeQuiz });
-    socket.emit('start_game', { roomCode: code, quiz: activeQuiz });
+    setStatus('question');
+    socket.emit('start_game', { roomCode: code });
   };
 
-  const handleCopyInvite = async () => {
-    try {
-      await navigator.clipboard.writeText(inviteLink);
-    } catch (error) {
-      console.warn('Could not copy invite link:', error);
-    }
+  const handleCopyInvite = () => {
+    navigator.clipboard.writeText(inviteLink);
   };
+
+  const contestants = players.filter((p) => !p.isHost);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-6">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <div className="min-h-screen bg-[#030712] text-white p-4 sm:p-8 relative overflow-hidden select-none">
+      <ParticleBackground />
+      <div className="absolute inset-0 bg-blue-grid opacity-15 pointer-events-none z-0" />
+      <div className="fixed top-1/4 left-1/4 w-[500px] h-[500px] bg-sky-500/10 rounded-full blur-[160px] pointer-events-none" />
 
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8 relative z-10">
+        
         {/* Left Sidebar: Quiz Info */}
         <div className="lg:col-span-1 space-y-6">
-          <Card className="p-6">
-            <div className="flex items-center gap-2 text-indigo-400 mb-4">
-              <Info size={18} />
-              <span className="text-xs font-bold uppercase tracking-widest">Quiz Details</span>
+          <div className="bg-[#070e28] border border-sky-500/30 rounded-3xl p-6 shadow-2xl shadow-sky-950/40 space-y-4">
+            <div className="flex items-center gap-2 text-sky-400 font-bold text-xs uppercase tracking-wider">
+              <Sparkles size={16} />
+              <span>Assessment Details</span>
             </div>
-            <h3 className="text-2xl font-black mb-2">{currentQuiz?.title}</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-white/40">Category</span>
-                <span className="font-bold">{currentQuiz?.category}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-white/40">Difficulty</span>
-                <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-bold text-[10px] uppercase">
-                  {currentQuiz?.difficulty}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-white/40">Questions</span>
-                <span className="font-bold">{currentQuiz?.questions?.length ?? 0}</span>
-              </div>
+            <h3 className="text-xl font-black text-white">{currentQuiz?.title || DEFAULT_FALLBACK_QUIZ.title}</h3>
+            <div className="flex items-center gap-2">
+              <span className="bg-sky-500/20 text-sky-300 border border-sky-400/30 px-3 py-1 rounded-xl text-xs font-extrabold">
+                {currentQuiz?.category || DEFAULT_FALLBACK_QUIZ.category}
+              </span>
+              <span className="bg-blue-600/20 text-blue-300 border border-blue-400/30 px-3 py-1 rounded-xl text-xs font-extrabold">
+                {currentQuiz?.questions?.length || DEFAULT_FALLBACK_QUIZ.questions.length} Questions
+              </span>
             </div>
-          </Card>
+          </div>
 
-          {me?.isHost && (
-            <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/create')}>
-              <Pencil size={18} />
-              Edit Quiz
-            </Button>
-          )}
-
-          <Button variant="outline" className="w-full justify-start">
-            <Settings size={18} />
-            Game Settings
-          </Button>
-          <Button variant="ghost" className="w-full justify-start text-rose-500 hover:bg-rose-500/10" onClick={() => navigate('/')}>
-            <LogOut size={18} />
-            Leave Room
-          </Button>
+          <div className="space-y-2">
+            <button 
+              onClick={() => navigate('/')}
+              className="w-full py-3 px-4 rounded-2xl bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/60 text-rose-300 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <LogOut size={16} />
+              <span>Leave Room</span>
+            </button>
+          </div>
         </div>
 
         {/* Main Area: Players Grid */}
         <div className="lg:col-span-2 space-y-8">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h2 className="text-4xl font-black italic uppercase tracking-tighter">Game Lobby</h2>
-              <p className="text-white/40">{me?.isHost ? 'Share the QR code and start when everyone is ready.' : 'Waiting for the host to begin the game.'}</p>
+              <h2 className="text-3xl sm:text-4xl font-black italic uppercase tracking-tighter bg-gradient-to-r from-sky-300 via-blue-200 to-white bg-clip-text text-transparent">
+                Game Lobby
+              </h2>
+              <p className="text-sky-200/70 text-xs sm:text-sm font-medium mt-1">
+                {me?.isHost ? 'Share the QR code & start when everyone is ready.' : 'Waiting for the host to begin the battle.'}
+              </p>
             </div>
-            <div className="bg-white/5 border border-white/10 rounded-2xl px-6 py-3 flex items-center gap-4">
+            <div className="bg-[#070e28] border border-sky-500/30 rounded-2xl px-6 py-3 flex items-center gap-4 shadow-lg shadow-sky-950/30">
               <div className="text-right">
-                <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Room Code</div>
-                <div className="text-2xl font-black tracking-widest text-indigo-400">{code}</div>
+                <div className="text-[10px] font-black text-sky-300 uppercase tracking-widest">Room Code</div>
+                <div className="text-2xl font-black font-mono tracking-widest text-sky-400">{code}</div>
               </div>
-              <button className="p-2 hover:bg-white/10 rounded-xl transition-colors" onClick={handleCopyInvite}>
+              <button 
+                className="p-2 hover:bg-white/10 rounded-xl text-sky-300 transition-colors cursor-pointer" 
+                onClick={handleCopyInvite}
+              >
                 <Share2 size={20} />
               </button>
             </div>
@@ -211,54 +196,55 @@ export const LobbyPage = () => {
               <PlayerCard key={player.id} player={player} />
             ))}
             {[...Array(Math.max(0, 8 - contestants.length))].map((_, i) => (
-              <div key={i} className="aspect-square rounded-3xl border-2 border-dashed border-white/5 flex items-center justify-center">
-                <Users className="text-white/5" size={32} />
+              <div key={i} className="aspect-square rounded-3xl border-2 border-dashed border-sky-500/20 bg-[#04091a]/40 flex items-center justify-center">
+                <Users className="text-sky-500/20" size={32} />
               </div>
             ))}
           </div>
         </div>
 
-        {/* Right Sidebar: Actions */}
-        <div className="lg:col-span-1 space-y-6 sticky top-6 self-start">
-          <Card className="p-6 text-center">
-            <div className="flex items-center gap-2 text-indigo-400 mb-4 justify-center">
+        {/* Right Sidebar: Actions & QR */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-[#070e28] border border-sky-500/30 rounded-3xl p-6 text-center shadow-2xl shadow-sky-950/40 space-y-4">
+            <div className="flex items-center gap-2 text-sky-400 mb-2 justify-center">
               <QrCode size={18} />
-              <span className="text-xs font-bold uppercase tracking-widest">Scan to Join</span>
+              <span className="text-xs font-extrabold uppercase tracking-widest">Scan to Join</span>
             </div>
-            <div className="mx-auto w-56 h-56 rounded-3xl bg-black/40 border border-white/10 flex items-center justify-center p-4 mb-4 overflow-hidden">
+            <div className="mx-auto w-52 h-52 rounded-2xl bg-white border border-sky-400/40 flex items-center justify-center p-3 shadow-lg">
               {qrDataUrl ? (
                 <img src={qrDataUrl} alt={`Join room ${code}`} className="w-full h-full object-contain" />
               ) : (
-                <div className="text-white/30 text-sm font-bold">Generating QR...</div>
+                <div className="text-slate-800 text-sm font-bold">Generating QR...</div>
               )}
             </div>
-            <div className="text-xs text-white/40 mb-3 break-all">{inviteLink}</div>
-            <Button variant="outline" className="w-full" onClick={handleCopyInvite}>
-              <Copy size={16} />
-              Copy Invite Link
-            </Button>
-          </Card>
+            <button 
+              onClick={handleCopyInvite}
+              className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-sky-500/30 text-sky-200 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Copy size={14} />
+              <span>Copy Invite Link</span>
+            </button>
+          </div>
 
-          <Card className="p-8 flex flex-col items-center text-center">
-            <div className="w-20 h-20 bg-indigo-500/20 rounded-full flex items-center justify-center mb-6">
-              <Users size={32} className="text-indigo-400" />
+          <div className="bg-[#070e28] border border-sky-500/30 rounded-3xl p-6 flex flex-col items-center text-center shadow-2xl shadow-sky-950/40">
+            <div className="w-16 h-16 bg-sky-500/20 border border-sky-400/30 rounded-2xl flex items-center justify-center mb-4 text-sky-300 shadow-inner">
+              <Users size={28} />
             </div>
-            <h4 className="text-3xl font-black mb-2">{contestants.length}</h4>
-            <p className="text-white/40 text-sm mb-8">Players Joined</p>
+            <h4 className="text-3xl font-black text-white mb-1">{contestants.length}</h4>
+            <p className="text-sky-200/70 text-xs font-bold uppercase tracking-wider mb-6">Players Joined</p>
 
-            <Button
-              size="lg"
-              className="w-full mb-4"
+            <button
               onClick={handleStart}
               disabled={contestants.length === 0 || !me?.isHost}
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-sky-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
-              <Play fill="currentColor" />
-              Start Battle
-            </Button>
-            <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest">
+              <Play size={16} fill="currentColor" />
+              <span>Start Battle</span>
+            </button>
+            <p className="text-[10px] text-sky-300/60 font-bold uppercase tracking-widest mt-3">
               {me?.isHost ? 'Only host can start' : 'Waiting for host to start'}
             </p>
-          </Card>
+          </div>
         </div>
 
       </div>
