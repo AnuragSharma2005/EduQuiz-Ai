@@ -19,6 +19,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { useTeacherStore } from './teacherStore';
+import { getFrontendOrigin } from '../services/config';
 
 const FALLBACK_QUESTION = {
   id: 'q_default',
@@ -126,9 +127,7 @@ export const ProjectorScreenView: React.FC = () => {
 
   const isFinished = status === 'finished';
   const isLobby = status === 'lobby';
-  const joinUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/join?code=${roomCode}`
-    : `http://localhost:5173/join?code=${roomCode}`;
+  const joinUrl = `${getFrontendOrigin()}/join?code=${roomCode}`;
 
   return (
     <div className="min-h-screen bg-[#04060f] text-white p-4 sm:p-6 lg:p-8 font-sans flex flex-col justify-between relative overflow-hidden select-none pb-28">

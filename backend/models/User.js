@@ -42,8 +42,8 @@ const UserSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['player', 'teacher', 'admin'],
-      default: 'player',
+      enum: ['player', 'student', 'teacher', 'admin'],
+      default: 'student',
     },
     department: {
       type: String,
@@ -57,12 +57,20 @@ const UserSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-    // User Statistics
+    // General / Student User Statistics
     totalGamesPlayed: {
       type: Number,
       default: 0,
     },
+    quizzesTaken: {
+      type: Number,
+      default: 0,
+    },
     totalScore: {
+      type: Number,
+      default: 0,
+    },
+    avgScore: {
       type: Number,
       default: 0,
     },
@@ -80,6 +88,28 @@ const UserSchema = new mongoose.Schema(
       min: 0,
       max: 100,
     },
+    avgAccuracy: {
+      type: Number,
+      default: 0,
+    },
+    // Student Session Participation Logs (Quiz history per student)
+    sessionLogs: [
+      {
+        sessionId: String,
+        quizTitle: String,
+        category: String,
+        roomCode: String,
+        score: Number,
+        correctAnswers: Number,
+        totalQuestions: Number,
+        rank: Number,
+        date: String,
+        playedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     // Teacher Specific Statistics
     quizzesCreated: {
       type: Number,

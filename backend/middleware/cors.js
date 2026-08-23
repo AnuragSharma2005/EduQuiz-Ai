@@ -29,16 +29,20 @@ export const corsMiddleware = cors({
     // Allow requests with no origin header (Postman, curl, mobile apps)
     if (!origin) return callback(null, true);
 
-    if (ALLOWED_ORIGINS.includes(origin)) {
+    // Allow all vercel, netlify, render deployments or allowed origins
+    if (
+      ALLOWED_ORIGINS.includes(origin) ||
+      origin.endsWith('.vercel.app') ||
+      origin.endsWith('.onrender.com') ||
+      origin.endsWith('.netlify.app') ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:')
+    ) {
       callback(null, true);
     } else if (process.env.NODE_ENV === 'development') {
-      // In dev, allow all localhost variations
-      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-        return callback(null, true);
-      }
-      callback(new Error(`CORS: origin '${origin}' not allowed`));
+      callback(null, true);
     } else {
-      callback(new Error(`CORS: origin '${origin}' not allowed`));
+      callback(null, true); // Permissive CORS for deployed production API
     }
   },
   credentials: true,

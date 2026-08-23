@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Share2, Edit, Settings, LogOut, Copy, Check, Users, Play, Monitor, Info, GraduationCap, UserPlus } from 'lucide-react';
 import { useTeacherStore } from './teacherStore';
 import socket from '../services/socket';
+import { getFrontendOrigin } from '../services/config';
 
 export const TeacherGameLobbyView: React.FC = () => {
   const { activeSession, setSelectedTab, startGame, simulateJoinStudent } = useTeacherStore();
@@ -84,9 +85,7 @@ export const TeacherGameLobbyView: React.FC = () => {
   }
 
   const { roomCode, assessment, students } = activeSession;
-  const joinUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/join?code=${roomCode}`
-    : `http://localhost:5173/join?code=${roomCode}`;
+  const joinUrl = `${getFrontendOrigin()}/join?code=${roomCode}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(joinUrl);

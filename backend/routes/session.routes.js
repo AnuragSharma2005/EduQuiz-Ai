@@ -13,7 +13,7 @@ router.post('/', async (req, res, next) => {
   try {
     const session = await new GameSession(req.body).save();
 
-    // Increment sessionsCreated & totalStudentsTaught stats on User model
+    // 1. Increment sessionsCreated & totalStudentsTaught stats on User model for Teacher
     const targetHost = req.body.hostId || req.body.hostEmail;
     if (targetHost) {
       const isObjId = mongoose.Types.ObjectId.isValid(targetHost);
@@ -28,6 +28,64 @@ router.post('/', async (req, res, next) => {
           },
         }
       ).catch((e) => console.warn('User teacher stats update skipped:', e.message));
+    }
+
+    // 2. Persist/update Student records in MongoDB User collection under role = 'student'
+    if (Array.isArray(req.body.players) && req.body.players.length > 0) {
+      for (const p of req.body.players) {
+        if (!p.username) continue;
+        const cleanName = p.username.trim();
+        const cleanLower = cleanName.toLowerCase();
+        const studentEmail = `${cleanLower.replace(/[^a-z0-9]/g, '')}@student.edu`;
+        const score = Number(p.score) || 0;
+        const correct = Number(p.correctAnswers) || 0;
+        const totalQ = Number(req.body.totalQuestions) || 5;
+        const accuracy = Math.min(100, Math.round((correct / totalQ) * 100)) || 80;
+
+        const sessionLog = {
+          sessionId: session._id.toString(),
+          quizTitle: req.body.quizTitle || 'Interactive Quiz',
+          category: req.body.quizCategory || 'Computer Science',
+          roomCode: req.body.roomCode || 'ROOM',
+          score,
+          correctAnswers: correct,
+          totalQuestions: totalQ,
+          rank: p.rank || 1,
+          date: new Date().toLocaleDateString('en-GB'),
+        };
+
+        const existingStudent = await User.findOne({
+          $or: [{ username: cleanLower }, { email: studentEmail }],
+          role: { $in: ['student', 'player'] },
+        });
+
+        if (existingStudent) {
+          existingStudent.quizzesTaken = (existingStudent.quizzesTaken || 0) + 1;
+          existingStudent.totalScore = (existingStudent.totalScore || 0) + score;
+          existingStudent.avgScore = Math.round(existingStudent.totalScore / existingStudent.quizzesTaken);
+          existingStudent.bestScore = Math.max(existingStudent.bestScore || 0, score);
+          existingStudent.avgAccuracy = Math.round(((existingStudent.avgAccuracy || 80) + accuracy) / 2);
+          existingStudent.sessionLogs = existingStudent.sessionLogs || [];
+          existingStudent.sessionLogs.push(sessionLog);
+          await existingStudent.save().catch((e) => console.warn('Student update error:', e.message));
+        } else {
+          await new User({
+            username: cleanLower,
+            fullName: cleanName,
+            email: studentEmail,
+            password: 'student123',
+            plainPassword: 'student123',
+            role: 'student',
+            department: req.body.quizCategory || 'Computer Science',
+            quizzesTaken: 1,
+            totalScore: score,
+            avgScore: score,
+            bestScore: score,
+            avgAccuracy: accuracy,
+            sessionLogs: [sessionLog],
+          }).save().catch((e) => console.warn('Student creation error:', e.message));
+        }
+      }
     }
 
     res.status(201).json(session);
@@ -74,11 +132,16 @@ router.get('/', async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/sessions/students  ← Fetch aggregated student data for a teacher
+// GET /api/sessions/students  ← Fetch student users & session history from MongoDB
 // ─────────────────────────────────────────────────────────────
 router.get('/students', async (req, res, next) => {
   try {
     const { hostId, hostEmail } = req.query;
+
+    // 1. Fetch student users directly from MongoDB User collection
+    const studentUsers = await User.find({ role: { $in: ['student', 'player'] } }).lean();
+
+    // 2. Fetch sessions for host filtering
     let filter = {};
     if (hostId || hostEmail) {
       const targetHost = hostId || hostEmail;
@@ -90,30 +153,63 @@ router.get('/students', async (req, res, next) => {
         { hostEmail: lower },
       ];
     }
-
     const sessions = await GameSession.find(filter).lean();
+
     const studentMap = new Map();
 
+    // Populate from MongoDB User documents
+    studentUsers.forEach((u) => {
+      const key = u.username.trim().toLowerCase();
+      studentMap.set(key, {
+        id: u._id.toString(),
+        name: u.fullName || u.username,
+        email: u.email,
+        department: u.department || 'Computer Science',
+        quizzesTaken: u.quizzesTaken || (u.sessionLogs ? u.sessionLogs.length : 0),
+        totalPoints: u.totalScore || 0,
+        avgAccuracy: u.avgAccuracy || u.accuracy || 85,
+        status: u.isActive ? 'ACTIVE' : 'BLOCKED',
+        sessionLogs: u.sessionLogs || [],
+      });
+    });
+
+    // Merge session logs from GameSession records if any missing
     sessions.forEach((sess) => {
       if (Array.isArray(sess.players)) {
         sess.players.forEach((p) => {
           if (!p.username) return;
           const key = p.username.trim().toLowerCase();
-          const existing = studentMap.get(key) || {
-            id: 'std_' + key.replace(/[^a-z0-9]/g, ''),
-            name: p.username,
-            email: `${key.replace(/\s+/g, '')}@student.edu`,
-            department: sess.quizCategory || 'Computer Science',
-            quizzesTaken: 0,
-            totalPoints: 0,
-            avgAccuracy: 85,
-            status: 'ACTIVE',
-          };
+          let existing = studentMap.get(key);
 
-          existing.quizzesTaken += 1;
-          existing.totalPoints += (p.score || 0);
-          existing.avgAccuracy = Math.min(100, Math.round((existing.totalPoints / (existing.quizzesTaken * 500)) * 100) || 85);
-          studentMap.set(key, existing);
+          if (!existing) {
+            existing = {
+              id: 'std_' + key.replace(/[^a-z0-9]/g, ''),
+              name: p.username,
+              email: `${key.replace(/\s+/g, '')}@student.edu`,
+              department: sess.quizCategory || 'Computer Science',
+              quizzesTaken: 0,
+              totalPoints: 0,
+              avgAccuracy: 85,
+              status: 'ACTIVE',
+              sessionLogs: [],
+            };
+            studentMap.set(key, existing);
+          }
+
+          const hasLog = existing.sessionLogs.some((l) => l.sessionId === sess._id.toString());
+          if (!hasLog) {
+            existing.quizzesTaken += 1;
+            existing.totalPoints += (p.score || 0);
+            existing.sessionLogs.push({
+              sessionId: sess._id.toString(),
+              quizTitle: sess.quizTitle || 'Interactive Assessment',
+              category: sess.quizCategory || 'General',
+              roomCode: sess.roomCode || 'ROOM',
+              score: p.score || 0,
+              rank: p.rank || 1,
+              date: sess.createdAt ? new Date(sess.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
+            });
+          }
         });
       }
     });
