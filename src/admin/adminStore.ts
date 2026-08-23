@@ -133,7 +133,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   fetchAssessmentsFromBackend: async () => {
     try {
       const currentTeachers = get().teachers;
-      const mapped: AssessmentItem[] = [];
+      const rawItems: AssessmentItem[] = [];
       const seenIds = new Set<string>();
 
       // 1. Fetch Quizzes from MongoDB backend
@@ -159,16 +159,16 @@ export const useAdminStore = create<AdminState>((set, get) => ({
                 return (
                   (tId && (tId === qTeacherId || tId === qCreatedBy)) ||
                   (tEmail && (tEmail === qCreatedBy || tEmail === qTeacherId.toLowerCase())) ||
-                  (tName && qTeacherName && tName === qTeacherName)
+                  (tName && qTeacherName && qTeacherName !== 'null' && qTeacherName !== 'teacher' && tName === qTeacherName)
                 );
               });
 
-              mapped.push({
+              rawItems.push({
                 id: qId,
                 title: q.title,
                 teacherId: matchingTeacher ? matchingTeacher.id : (q.teacherId || q.createdBy || 'unknown'),
                 teacherEmail: matchingTeacher ? matchingTeacher.email : qCreatedBy,
-                teacherName: matchingTeacher ? matchingTeacher.name : (q.teacherName || 'Teacher'),
+                teacherName: matchingTeacher ? matchingTeacher.name : (q.teacherName && q.teacherName !== 'null' ? q.teacherName : 'Teacher'),
                 department: matchingTeacher?.department || q.category || 'Computer Science',
                 questionCount: q.questions?.length || q.questionCount || 0,
                 studentsParticipated: q.enrolledStudentsCount || q.playCount || 0,
@@ -206,16 +206,16 @@ export const useAdminStore = create<AdminState>((set, get) => ({
                 return (
                   (tId && tId === hostId) ||
                   (tEmail && tEmail === hostEmail) ||
-                  (tName && hostName && tName === hostName)
+                  (tName && hostName && hostName !== 'null' && hostName !== 'teacher' && tName === hostName)
                 );
               });
 
-              mapped.push({
+              rawItems.push({
                 id: sId,
                 title: s.quizTitle || 'Live Battle Session',
                 teacherId: matchingTeacher ? matchingTeacher.id : (hostId || hostEmail || 'unknown'),
                 teacherEmail: matchingTeacher ? matchingTeacher.email : hostEmail,
-                teacherName: matchingTeacher ? matchingTeacher.name : (s.hostName || 'Teacher'),
+                teacherName: matchingTeacher ? matchingTeacher.name : (s.hostName && s.hostName !== 'null' ? s.hostName : 'Teacher'),
                 department: matchingTeacher?.department || s.quizCategory || 'Computer Science',
                 questionCount: s.totalQuestions || 5,
                 studentsParticipated: Array.isArray(s.players) ? s.players.length : (s.playerCount || 0),
@@ -230,6 +230,35 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         console.warn('Session fetch skipped:', e);
       }
 
+      // 3. Consolidate & Deduplicate Items by Assessment Title
+      const titleMap = new Map<string, AssessmentItem>();
+
+      rawItems.forEach((item) => {
+        const cleanTitle = String(item.title || '').trim();
+        if (!cleanTitle || cleanTitle.toLowerCase() === 'live battle session') return;
+
+        const key = cleanTitle.toLowerCase();
+
+        if (!titleMap.has(key)) {
+          titleMap.set(key, { ...item, title: cleanTitle });
+        } else {
+          const existing = titleMap.get(key)!;
+          // Aggregate maximum participant count or sum
+          existing.studentsParticipated = Math.max(existing.studentsParticipated, item.studentsParticipated);
+          // Upgrade generic teacher name to assigned teacher if available
+          if (existing.teacherName === 'Teacher' && item.teacherName !== 'Teacher') {
+            existing.teacherName = item.teacherName;
+            existing.teacherId = item.teacherId;
+            existing.teacherEmail = item.teacherEmail;
+            existing.department = item.department;
+          }
+          if (item.questionCount > existing.questionCount) {
+            existing.questionCount = item.questionCount;
+          }
+        }
+      });
+
+      const mapped = Array.from(titleMap.values());
       set({ assessments: mapped });
     } catch (e) {
       console.warn('Backend server assessment fetch skipped:', e);
