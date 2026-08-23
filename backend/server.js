@@ -43,6 +43,16 @@ io.on('connection', (socket) => registerGameHandlers(io, socket));
 async function start() {
   await connectDB();
 
+  httpServer.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`❌ Port ${PORT} is already in use by another node process.`);
+      console.error(`👉 Tip: Stop existing node processes or change PORT in .env`);
+      process.exit(1);
+    } else {
+      console.error('❌ Server error:', err);
+    }
+  });
+
   httpServer.listen(PORT, () => {
     console.log('');
     console.log('╔══════════════════════════════════════════╗');

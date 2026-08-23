@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import socket from '../services/socket';
 import { useGameStore } from '../store/useGameStore';
+import { getApiBase } from '../services/config';
+import { useAdminStore } from '../admin/adminStore';
 
 export interface QuestionItem {
   id: string;
@@ -83,12 +85,14 @@ interface TeacherState {
   selectedTab: 'dashboard' | 'questions' | 'create' | 'lobby' | 'live' | 'projector' | 'results' | 'classrooms' | 'leaderboard' | 'profile' | 'settings';
   isSidebarOpen: boolean;
 
-  // Actions
-  loginTeacher: (email: string, password: string) => boolean;
+  loginTeacher: (email: string, password: string) => Promise<boolean>;
   logoutTeacher: () => void;
   setSelectedTab: (tab: TeacherState['selectedTab']) => void;
   toggleSidebar: () => void;
   updateTeacherProfile: (updated: Partial<TeacherProfile>) => void;
+  fetchTeacherQuizzes: () => Promise<void>;
+  fetchTeacherSessions: () => Promise<void>;
+  fetchTeacherStudents: () => Promise<void>;
   
   // Assessment CRUD
   createAssessment: (newAssessment: Omit<TeacherAssessment, 'id' | 'createdAt' | 'enrolledStudentsCount' | 'avgScore'>) => TeacherAssessment;
@@ -203,50 +207,380 @@ const DEFAULT_SESSION_HISTORY: SessionHistoryItem[] = [
   },
 ];
 
-const INITIAL_TEACHER_PROFILE: TeacherProfile = JSON.parse(sessionStorage.getItem('teacher_data') || 'null') || {
-  id: '1b6ab4ac',
-  name: 'Dr. Sarah Jenkins',
-  email: 'teacher@edupulse.ai',
-  department: 'Computer Science',
-  title: 'Senior Associate Professor',
-  bio: 'Passionate about AI algorithms, interactive classroom learning, and real-time student gamification.',
-  phone: '+1 (555) 234-5678',
+const getInitialTeacherProfile = (): TeacherProfile => {
+  if (typeof window !== 'undefined') {
+    const saved = sessionStorage.getItem('teacher_data') || localStorage.getItem('teacher_data');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+  }
+  return {
+    id: '1b6ab4ac-7821-4f2a-9e11-4091a120892c',
+    name: 'Dr. Sarah Jenkins',
+    email: 'teacher@edupulse.ai',
+    department: 'Computer Science',
+    title: 'Senior Associate Professor',
+    bio: 'Passionate about AI algorithms, interactive classroom learning, and real-time student gamification.',
+    phone: '+1 (555) 234-5678',
+  };
 };
 
+const getStoredTeacherAssessments = (teacherId: string, email: string): TeacherAssessment[] => {
+  const lowerEmail = (email || '').toLowerCase();
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem(`teacher_assessments_${teacherId}`) || localStorage.getItem(`teacher_assessments_${lowerEmail}`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }
+
+  if (lowerEmail === 'anurag@gmail.com') {
+    return [
+      {
+        id: 'web_arch_101',
+        title: 'Web Architecture & REST APIs',
+        category: 'COMPUTER SCIENCE',
+        difficulty: 'Medium',
+        timePerQuestion: 20,
+        enrolledStudentsCount: 35,
+        avgScore: 88.0,
+        createdAt: '21/08/2026',
+        questions: [
+          {
+            id: 'wq1',
+            text: 'Which HTTP method is idempotent and used to retrieve resources?',
+            options: ['POST', 'GET', 'PATCH', 'CONNECT'],
+            correctAnswer: 1,
+            timeLimit: 20,
+          },
+          {
+            id: 'wq2',
+            text: 'What HTTP status code represents "Created"?',
+            options: ['200 OK', '201 Created', '404 Not Found', '500 Server Error'],
+            correctAnswer: 1,
+            timeLimit: 20,
+          },
+        ],
+      },
+      {
+        id: 'os_concurrency',
+        title: 'Operating Systems - Concurrency & Threads',
+        category: 'COMPUTER SCIENCE',
+        difficulty: 'Hard',
+        timePerQuestion: 25,
+        enrolledStudentsCount: 29,
+        avgScore: 81.5,
+        createdAt: '18/08/2026',
+        questions: [
+          {
+            id: 'osq1',
+            text: 'What is a Semaphore used for in OS concurrency?',
+            options: ['Process Scheduling', 'Synchronization', 'Virtual Memory', 'Disk Formatting'],
+            correctAnswer: 1,
+            timeLimit: 25,
+          },
+        ],
+      },
+    ];
+  }
+
+  if (lowerEmail === 'teacher@edupulse.ai') {
+    return DEFAULT_TEACHER_ASSESSMENTS;
+  }
+
+  // Any newly created teacher starts with 0 assessments!
+  return [];
+};
+
+const getStoredTeacherSessions = (teacherId: string, email: string): SessionHistoryItem[] => {
+  const lowerEmail = (email || '').toLowerCase();
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem(`teacher_sessions_${teacherId}`) || localStorage.getItem(`teacher_sessions_${lowerEmail}`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }
+
+  return [];
+};
+
+const _initTeacher = getInitialTeacherProfile();
+
 export const useTeacherStore = create<TeacherState>((set, get) => ({
-  currentTeacher: INITIAL_TEACHER_PROFILE,
-  isTeacherAuth: sessionStorage.getItem('isTeacherAuth') === 'true',
-  assessments: DEFAULT_TEACHER_ASSESSMENTS,
+  currentTeacher: _initTeacher,
+  isTeacherAuth: typeof window !== 'undefined' && sessionStorage.getItem('isTeacherAuth') === 'true',
+  assessments: getStoredTeacherAssessments(_initTeacher.id, _initTeacher.email),
   activeSession: null,
-  sessionHistory: DEFAULT_SESSION_HISTORY,
+  sessionHistory: getStoredTeacherSessions(_initTeacher.id, _initTeacher.email),
   registeredStudents: [], // Starts 0 initial state
   editingAssessment: null,
   selectedTab: 'dashboard',
   isSidebarOpen: false,
 
-  loginTeacher: (email, password) => {
-    const validEmails = ['teacher@edupulse.ai', 'anurag@gmail.com', 'robert@university.edu'];
-    if ((validEmails.includes(email.toLowerCase()) || email.includes('@')) && (password === 'teacher123' || password.length >= 4)) {
-      const teacherObj: TeacherProfile = {
-        id: email.split('@')[0] + '_id',
-        name: email.startsWith('anurag') ? 'Anurag' : 'Dr. Sarah Jenkins',
-        email: email,
-        department: 'Computer Science',
-        title: 'Senior Associate Professor',
-        bio: 'Passionate about AI algorithms, interactive classroom learning, and real-time student gamification.',
-        phone: '+1 (555) 234-5678',
-      };
-      sessionStorage.setItem('isTeacherAuth', 'true');
-      sessionStorage.setItem('teacher_data', JSON.stringify(teacherObj));
-      set({ currentTeacher: teacherObj, isTeacherAuth: true, selectedTab: 'dashboard' });
-      return true;
+  fetchTeacherQuizzes: async () => {
+    const teacher = get().currentTeacher;
+    if (!teacher || !teacher.id) return;
+
+    try {
+      const res = await fetch(`${getApiBase()}/quizzes?teacherId=${encodeURIComponent(teacher.id)}&email=${encodeURIComponent(teacher.email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.quizzes)) {
+          const loadedQuizzes: TeacherAssessment[] = data.quizzes.map((q: any) => ({
+            id: q._id || q.id,
+            title: q.title,
+            category: q.category || 'COMPUTER SCIENCE',
+            difficulty: q.difficulty || 'Medium',
+            timePerQuestion: q.timePerQuestion || 20,
+            enrolledStudentsCount: q.enrolledStudentsCount || 0,
+            avgScore: q.avgScore || 0,
+            createdAt: q.createdAt ? new Date(q.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
+            questions: q.questions || [],
+          }));
+
+          set({ assessments: loadedQuizzes });
+          localStorage.setItem(`teacher_assessments_${teacher.id}`, JSON.stringify(loadedQuizzes));
+          localStorage.setItem(`teacher_assessments_${teacher.email}`, JSON.stringify(loadedQuizzes));
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not fetch teacher quizzes from MongoDB:', e);
     }
-    return false;
+  },
+
+  fetchTeacherSessions: async () => {
+    const teacher = get().currentTeacher;
+    if (!teacher || !teacher.id) return;
+
+    try {
+      const res = await fetch(`${getApiBase()}/sessions?hostId=${encodeURIComponent(teacher.id)}&hostEmail=${encodeURIComponent(teacher.email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.sessions)) {
+          const loadedSessions: SessionHistoryItem[] = data.sessions.map((s: any) => ({
+            id: s._id || s.id,
+            assessmentTitle: s.quizTitle || s.assessmentTitle || 'Interactive Assessment',
+            category: s.quizCategory || s.category || 'General',
+            roomCode: s.roomCode || 'ROOM',
+            date: s.dateStr || (s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')),
+            totalStudents: s.players?.length ?? s.totalStudents ?? 0,
+            avgScore: (s.players?.length ?? s.totalStudents ?? 0) === 0 ? 0 : (typeof s.avgScore === 'number' ? s.avgScore : (typeof s.averageScore === 'number' ? s.averageScore : 0)),
+            rankings: (s.players || s.rankings || []).map((p: any, idx: number) => ({
+              rank: p.rank || idx + 1,
+              name: p.username || p.name || 'Student',
+              score: p.score || 0,
+              correctCount: p.correctAnswers || p.correctCount || 0,
+            })).sort((a: any, b: any) => b.score - a.score).map((item: any, idx: number) => ({ ...item, rank: idx + 1 })),
+          }));
+
+          // Direct clean update from MongoDB state
+          set({ sessionHistory: loadedSessions });
+          localStorage.setItem(`teacher_sessions_${teacher.id}`, JSON.stringify(loadedSessions));
+          localStorage.setItem(`teacher_sessions_${teacher.email}`, JSON.stringify(loadedSessions));
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not fetch teacher sessions from MongoDB:', e);
+    }
+  },
+
+  deleteSession: async (sessionId: string) => {
+    const teacher = get().currentTeacher;
+    const targetSession = get().sessionHistory.find((s) => s.id === sessionId);
+    const sessionTitle = targetSession?.assessmentTitle;
+
+    // 1. Delete session from MongoDB backend (backend will also cascade delete associated quiz)
+    try {
+      await fetch(`${getApiBase()}/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+      if (sessionTitle) {
+        await fetch(`${getApiBase()}/quizzes/${encodeURIComponent(sessionTitle)}`, { method: 'DELETE' });
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not delete session/quiz from MongoDB:', e);
+    }
+
+    // 2. Remove session from sessionHistory AND remove matching quiz from assessments
+    const updatedSessions = get().sessionHistory.filter((s) => s.id !== sessionId);
+    let updatedAssessments = get().assessments;
+    if (sessionTitle) {
+      updatedAssessments = get().assessments.filter(
+        (a) => a.id !== sessionId && a.title.toLowerCase() !== sessionTitle.toLowerCase()
+      );
+    }
+
+    set({ sessionHistory: updatedSessions, assessments: updatedAssessments });
+
+    if (teacher) {
+      localStorage.setItem(`teacher_sessions_${teacher.id}`, JSON.stringify(updatedSessions));
+      localStorage.setItem(`teacher_sessions_${teacher.email}`, JSON.stringify(updatedSessions));
+      localStorage.setItem(`teacher_assessments_${teacher.id}`, JSON.stringify(updatedAssessments));
+      localStorage.setItem(`teacher_assessments_${teacher.email}`, JSON.stringify(updatedAssessments));
+    }
+
+    // 3. Update AdminStore instantly from MongoDB backend
+    try {
+      const adminStoreState = useAdminStore.getState();
+      if (adminStoreState && adminStoreState.fetchAssessmentsFromBackend) {
+        adminStoreState.fetchAssessmentsFromBackend();
+      }
+    } catch (e) {}
+  },
+
+  fetchTeacherStudents: async () => {
+    const teacher = get().currentTeacher;
+    if (!teacher || !teacher.id) return;
+
+    try {
+      const res = await fetch(`${getApiBase()}/sessions/students?hostId=${encodeURIComponent(teacher.id)}&hostEmail=${encodeURIComponent(teacher.email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.students) && data.students.length > 0) {
+          set({ registeredStudents: data.students });
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not fetch teacher students from MongoDB:', e);
+    }
+  },
+
+  loginTeacher: async (email, password) => {
+    const cleanEmail = email.trim().toLowerCase();
+    let matchedTeacher: any = null;
+
+    // 1. Gather all registered teachers created by Admin
+    let allTeachers: any[] = [];
+    try {
+      const stored = localStorage.getItem('admin_teachers');
+      if (stored) {
+        allTeachers = JSON.parse(stored);
+      }
+    } catch (e) {}
+
+    if (!allTeachers || allTeachers.length === 0) {
+      try {
+        const adminStoreState = useAdminStore.getState();
+        if (adminStoreState && adminStoreState.teachers) {
+          allTeachers = adminStoreState.teachers;
+        }
+      } catch (e) {}
+    }
+
+    if (!allTeachers || allTeachers.length === 0) {
+      allTeachers = [
+        {
+          id: '1b6ab4ac-7821-4f2a-9e11-4091a120892c',
+          name: 'Dr. Sarah Jenkins',
+          email: 'teacher@edupulse.ai',
+          department: 'Computer Science',
+          status: 'ACTIVE',
+          password: 'teacher123',
+        },
+        {
+          id: 'efda7886-9021-4b1c-88fa-120938491029',
+          name: 'anurag',
+          email: 'anurag@gmail.com',
+          department: 'Computer Science',
+          status: 'ACTIVE',
+          password: 'teacher123',
+        },
+      ];
+    }
+
+    // Check if email matches an admin-created teacher
+    const found = allTeachers.find(
+      (t) => t.email.toLowerCase() === cleanEmail && (t.status === 'ACTIVE' || t.status === 'Active' || !t.status)
+    );
+
+    if (found) {
+      // Validate exact password match!
+      if (found.password && found.password !== password) {
+        console.warn('⚠️ Password mismatch for teacher:', cleanEmail);
+        return false; // Password mismatch -> login fails
+      }
+      matchedTeacher = found;
+    }
+
+    // 2. Fallback check with backend MongoDB authentication endpoint
+    if (!matchedTeacher) {
+      try {
+        const res = await fetch(`${getApiBase()}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, password }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user && (data.user.role === 'teacher' || data.user.role === 'admin')) {
+            matchedTeacher = {
+              id: data.user.id || data.user._id,
+              name: data.user.fullName || data.user.username,
+              email: data.user.email,
+              department: data.user.department || 'Computer Science',
+              status: 'ACTIVE',
+              password: password,
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('Backend login endpoint check skipped/failed:', e);
+      }
+    }
+
+    // Strictly check if credentials matched!
+    if (!matchedTeacher) {
+      return false; // Mismatched or non-existent credentials -> login denied!
+    }
+
+    // Construct TeacherProfile for the specific logged-in teacher
+    const teacherObj: TeacherProfile = {
+      id: matchedTeacher.id || 'teacher_' + Math.random().toString(36).substring(2, 7),
+      name: matchedTeacher.name || cleanEmail.split('@')[0],
+      email: matchedTeacher.email || cleanEmail,
+      department: matchedTeacher.department || 'Computer Science',
+      title: matchedTeacher.title || 'Senior Faculty Educator',
+      bio: matchedTeacher.bio || 'Passionate about interactive education, student engagement, and gamified quizzes.',
+      phone: matchedTeacher.phone || '+1 (555) 234-5678',
+    };
+
+    // Load this teacher's separate assessment & session history dataset
+    const teacherAssessments = getStoredTeacherAssessments(teacherObj.id, teacherObj.email);
+    const teacherSessions = getStoredTeacherSessions(teacherObj.id, teacherObj.email);
+
+    // Save active session
+    sessionStorage.setItem('isTeacherAuth', 'true');
+    sessionStorage.setItem('teacher_data', JSON.stringify(teacherObj));
+    localStorage.setItem('teacher_data', JSON.stringify(teacherObj));
+
+    set({
+      currentTeacher: teacherObj,
+      isTeacherAuth: true,
+      assessments: teacherAssessments,
+      sessionHistory: teacherSessions,
+      selectedTab: 'dashboard',
+    });
+
+    // Fetch latest from MongoDB backend
+    get().fetchTeacherQuizzes();
+    get().fetchTeacherSessions();
+
+    return true;
   },
 
   logoutTeacher: () => {
     sessionStorage.removeItem('isTeacherAuth');
     sessionStorage.removeItem('teacher_data');
+    localStorage.removeItem('teacher_data');
     set({ isTeacherAuth: false, activeSession: null });
   },
 
@@ -256,14 +590,31 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
   updateTeacherProfile: (updatedFields) => {
     const updated = { ...get().currentTeacher, ...updatedFields };
     sessionStorage.setItem('teacher_data', JSON.stringify(updated));
+    localStorage.setItem('teacher_data', JSON.stringify(updated));
+
+    // Also update in admin store list so admin panel stays synced
+    try {
+      const adminTeachers = useAdminStore.getState().teachers;
+      const updatedAdminTeachers = adminTeachers.map((t) =>
+        t.id === updated.id || t.email.toLowerCase() === updated.email.toLowerCase()
+          ? { ...t, name: updated.name, email: updated.email, department: updated.department }
+          : t
+      );
+      useAdminStore.setState({ teachers: updatedAdminTeachers });
+      localStorage.setItem('admin_teachers', JSON.stringify(updatedAdminTeachers));
+    } catch (e) {}
+
     set({ currentTeacher: updated });
   },
 
-  // Assessment Operations
+  // Assessment CRUD
   createAssessment: (newAssessment) => {
     const id = 'ass_' + Math.random().toString(36).substring(2, 9);
     const today = new Date();
     const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+    const timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+    const currentTeacher = get().currentTeacher;
 
     const created: TeacherAssessment = {
       ...newAssessment,
@@ -276,21 +627,57 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
     const updated = [created, ...get().assessments];
     set({ assessments: updated, selectedTab: 'dashboard' });
 
-    // Persist assessment to MongoDB quizzes collection
-    fetch('/api/quizzes', {
+    // 1. Persist to local storage under teacher's ID
+    if (currentTeacher?.id) {
+      localStorage.setItem(`teacher_assessments_${currentTeacher.id}`, JSON.stringify(updated));
+      localStorage.setItem(`teacher_assessments_${currentTeacher.email}`, JSON.stringify(updated));
+    }
+
+    // 2. Sync to AdminStore assessments so Admin can view this teacher's assessment
+    try {
+      const adminAssessments = useAdminStore.getState().assessments;
+      const newAdminAssessment = {
+        id,
+        title: created.title,
+        teacherId: currentTeacher?.id || 'unknown',
+        teacherName: currentTeacher?.name || 'Teacher',
+        department: currentTeacher?.department || 'Computer Science',
+        questionCount: created.questions.length,
+        studentsParticipated: 0,
+        date: dateStr,
+        time: timeStr,
+        status: 'Live' as const,
+      };
+      useAdminStore.setState({ assessments: [newAdminAssessment, ...adminAssessments] });
+    } catch (e) {}
+
+    // 3. Persist assessment to MongoDB quizzes collection
+    fetch(`${getApiBase()}/quizzes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: created.title,
         category: created.category,
         difficulty: created.difficulty,
+        timePerQuestion: created.timePerQuestion || 20,
         questions: created.questions,
+        createdBy: currentTeacher?.id,
+        teacherId: currentTeacher?.id,
+        teacherName: currentTeacher?.name,
       }),
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data && data._id) {
-          console.log('✅ Assessment saved to MongoDB quizzes collection:', data._id);
+        if (data && (data._id || data.id)) {
+          const mongoId = data._id || data.id;
+          console.log('✅ Assessment saved to MongoDB quizzes collection:', mongoId);
+          // Sync local ID to MongoDB ObjectId
+          const syncedAssessments = get().assessments.map((a) => (a.id === id ? { ...a, id: mongoId } : a));
+          set({ assessments: syncedAssessments });
+          if (currentTeacher?.id) {
+            localStorage.setItem(`teacher_assessments_${currentTeacher.id}`, JSON.stringify(syncedAssessments));
+            localStorage.setItem(`teacher_assessments_${currentTeacher.email}`, JSON.stringify(syncedAssessments));
+          }
         }
       })
       .catch((err) => console.warn('⚠️ Could not save assessment to MongoDB:', err));
@@ -301,11 +688,66 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
   updateAssessment: (id, updatedData) => {
     const updated = get().assessments.map((a) => (a.id === id ? { ...a, ...updatedData } : a));
     set({ assessments: updated, editingAssessment: null });
+
+    const currentTeacher = get().currentTeacher;
+    if (currentTeacher?.id) {
+      localStorage.setItem(`teacher_assessments_${currentTeacher.id}`, JSON.stringify(updated));
+    }
+
+    // Update in MongoDB
+    fetch(`${getApiBase()}/quizzes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedData),
+    }).catch((err) => console.warn('⚠️ Could not update quiz in MongoDB:', err));
   },
 
-  deleteAssessment: (id) => {
-    const updated = get().assessments.filter((a) => a.id !== id);
-    set({ assessments: updated });
+  deleteAssessment: async (id: string) => {
+    const targetAssessment = get().assessments.find((a) => a.id === id);
+    const assessmentTitle = targetAssessment?.title;
+
+    // 1. Remove assessment from assessments AND remove matching session from sessionHistory
+    const updatedAssessments = get().assessments.filter((a) => a.id !== id);
+    let updatedSessions = get().sessionHistory;
+    if (assessmentTitle) {
+      updatedSessions = get().sessionHistory.filter(
+        (s) => s.id !== id && s.assessmentTitle.toLowerCase() !== assessmentTitle.toLowerCase()
+      );
+    }
+
+    set({ assessments: updatedAssessments, sessionHistory: updatedSessions });
+
+    const currentTeacher = get().currentTeacher;
+    if (currentTeacher?.id) {
+      localStorage.setItem(`teacher_assessments_${currentTeacher.id}`, JSON.stringify(updatedAssessments));
+      localStorage.setItem(`teacher_assessments_${currentTeacher.email}`, JSON.stringify(updatedAssessments));
+      localStorage.setItem(`teacher_sessions_${currentTeacher.id}`, JSON.stringify(updatedSessions));
+      localStorage.setItem(`teacher_sessions_${currentTeacher.email}`, JSON.stringify(updatedSessions));
+    }
+
+    // 2. Delete in MongoDB backend (backend will also cascade delete associated session)
+    try {
+      let res = await fetch(`${getApiBase()}/quizzes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!res.ok && assessmentTitle) {
+        res = await fetch(`${getApiBase()}/quizzes/${encodeURIComponent(assessmentTitle)}`, { method: 'DELETE' });
+      }
+      if (id) {
+        await fetch(`${getApiBase()}/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      }
+      if (assessmentTitle) {
+        await fetch(`${getApiBase()}/sessions/${encodeURIComponent(assessmentTitle)}`, { method: 'DELETE' });
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not delete quiz/session from MongoDB:', e);
+    }
+
+    // 3. Update AdminStore instantly from MongoDB backend
+    try {
+      const adminStoreState = useAdminStore.getState();
+      if (adminStoreState && adminStoreState.fetchAssessmentsFromBackend) {
+        adminStoreState.fetchAssessmentsFromBackend();
+      }
+    } catch (e) {}
   },
 
   setEditingAssessment: (assessment) => set({ editingAssessment: assessment }),
@@ -441,18 +883,23 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
     const session = get().activeSession;
     if (!session) return;
 
+    const currentTeacher = get().currentTeacher;
     const today = new Date();
     const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
     const sorted = [...session.students].sort((a, b) => b.score - a.score);
 
+    const calcAvg = session.students.length > 0
+      ? Math.round(session.students.reduce((acc, s) => acc + s.score, 0) / session.students.length)
+      : 0;
+
     const historyItem: SessionHistoryItem = {
       id: 'hist_' + Math.random().toString(36).substring(2, 9),
-      assessmentTitle: session.assessment.title,
-      category: session.assessment.category,
+      assessmentTitle: session.assessment?.title || 'Interactive Quiz',
+      category: session.assessment?.category || 'GENERAL',
       roomCode: session.roomCode,
       date: dateStr,
       totalStudents: session.students.length,
-      avgScore: 84.5,
+      avgScore: calcAvg,
       rankings: sorted.map((s, idx) => ({
         rank: idx + 1,
         name: s.name,
@@ -461,11 +908,74 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
       })),
     };
 
+    // Update registered students in teacher directory automatically
+    const existingReg = [...get().registeredStudents];
+    session.students.forEach((st) => {
+      const idx = existingReg.findIndex((r) => r.name.toLowerCase() === st.name.toLowerCase());
+      if (idx !== -1) {
+        existingReg[idx] = {
+          ...existingReg[idx],
+          quizzesTaken: existingReg[idx].quizzesTaken + 1,
+          avgAccuracy: Math.min(100, Math.round((existingReg[idx].avgAccuracy + Math.min(100, Math.round((st.score / 500) * 100))) / 2)),
+        };
+      } else {
+        existingReg.push({
+          id: 'std_' + Math.random().toString(36).substring(2, 8),
+          name: st.name,
+          email: `${st.name.toLowerCase().replace(/\s+/g, '')}@student.edu`,
+          department: session.assessment?.category || currentTeacher?.department || 'Computer Science',
+          status: 'ACTIVE',
+          quizzesTaken: 1,
+          avgAccuracy: Math.min(100, Math.round((st.score / 500) * 100) || 85),
+        });
+      }
+    });
+
+    const updatedSessions = [historyItem, ...get().sessionHistory];
+
     set({
-      sessionHistory: [historyItem, ...get().sessionHistory],
+      sessionHistory: updatedSessions,
+      registeredStudents: existingReg,
       activeSession: null,
       selectedTab: 'results',
     });
+
+    if (currentTeacher?.id) {
+      localStorage.setItem(`teacher_sessions_${currentTeacher.id}`, JSON.stringify(updatedSessions));
+      localStorage.setItem(`teacher_sessions_${currentTeacher.email}`, JSON.stringify(updatedSessions));
+      localStorage.setItem(`teacher_students_${currentTeacher.id}`, JSON.stringify(existingReg));
+      localStorage.setItem(`teacher_students_${currentTeacher.email}`, JSON.stringify(existingReg));
+    }
+
+    // Save session to backend MongoDB
+    fetch(`${getApiBase()}/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        roomCode: session.roomCode,
+        quizTitle: session.assessment?.title || 'Interactive Quiz',
+        quizCategory: session.assessment?.category || 'GENERAL',
+        totalQuestions: session.assessment?.questions?.length || 1,
+        hostId: currentTeacher?.id,
+        hostEmail: currentTeacher?.email,
+        hostName: currentTeacher?.name,
+        avgScore: calcAvg,
+        dateStr,
+        status: 'finished',
+        players: sorted.map((s) => ({
+          username: s.name,
+          score: s.score,
+          correctAnswers: Math.max(1, Math.floor(s.score / 200)),
+        })),
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && (data._id || data.id)) {
+          console.log('✅ Completed session saved to MongoDB:', data._id || data.id);
+        }
+      })
+      .catch((err) => console.warn('⚠️ Could not save session to MongoDB backend:', err));
   },
 
   clearActiveSession: () => {

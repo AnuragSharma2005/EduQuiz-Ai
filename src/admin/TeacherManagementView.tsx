@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Plus, Edit2, Trash2, X, CheckCircle, Eye, Calendar, Clock, BookOpen } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, X, CheckCircle, Eye, EyeOff, Calendar, Clock, BookOpen } from 'lucide-react';
 import { useAdminStore, TeacherItem } from './adminStore';
 
 export const TeacherManagementView: React.FC = () => {
@@ -25,6 +25,7 @@ export const TeacherManagementView: React.FC = () => {
   }, [fetchTeachersFromBackend]);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [visiblePasswords, setVisiblePasswords] = useState<{ [id: string]: boolean }>({});
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -135,6 +136,7 @@ export const TeacherManagementView: React.FC = () => {
                 <th className="py-4 px-4">TEACHER ID</th>
                 <th className="py-4 px-4">NAME</th>
                 <th className="py-4 px-4">EMAIL</th>
+                <th className="py-4 px-4">PASSWORD</th>
                 <th className="py-4 px-4">DEPARTMENT</th>
                 <th className="py-4 px-4">STATUS</th>
                 <th className="py-4 px-4">JOINED DATE</th>
@@ -144,7 +146,7 @@ export const TeacherManagementView: React.FC = () => {
             <tbody className="divide-y divide-sky-500/10 text-xs font-medium">
               {filteredTeachers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400 font-medium">
+                  <td colSpan={8} className="py-8 text-center text-slate-400 font-medium">
                     No teachers found. Click "Create Teacher Account" to add one.
                   </td>
                 </tr>
@@ -174,6 +176,21 @@ export const TeacherManagementView: React.FC = () => {
 
                     {/* Email */}
                     <td className="py-4 px-4 text-sky-200/80">{teacher.email}</td>
+
+                    {/* Password */}
+                    <td className="py-4 px-4 font-mono text-xs text-indigo-300">
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <span className="font-semibold">{visiblePasswords[teacher.id] ? (teacher.password || 'teacher123') : '••••••••'}</span>
+                        <button
+                          type="button"
+                          onClick={() => setVisiblePasswords((prev) => ({ ...prev, [teacher.id]: !prev[teacher.id] }))}
+                          className="text-sky-400 hover:text-white transition-colors cursor-pointer p-1"
+                          title={visiblePasswords[teacher.id] ? "Hide Password" : "Show Password"}
+                        >
+                          {visiblePasswords[teacher.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                    </td>
 
                     {/* Department */}
                     <td className="py-4 px-4 text-sky-100">{teacher.department}</td>

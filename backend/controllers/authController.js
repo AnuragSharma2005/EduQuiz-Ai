@@ -18,7 +18,7 @@ function generateToken(userId) {
  */
 export async function signup(req, res, next) {
   try {
-    const { username, email, password, fullName, avatar } = req.body;
+    const { username, email, password, fullName, avatar, role, department } = req.body;
 
     // Validation
     if (!username || !email || !password) {
@@ -47,6 +47,8 @@ export async function signup(req, res, next) {
       password,
       fullName,
       avatar,
+      role: role || 'player',
+      department: department || 'Computer Science',
     });
 
     await user.save();

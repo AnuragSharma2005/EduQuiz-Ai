@@ -45,6 +45,10 @@ const GameSessionSchema = new mongoose.Schema(
     gameDuration: { type: Number, default: 0 }, // in seconds
     questionsAttempted: { type: Number, default: 0 },
     hostId: { type: String },
+    hostEmail: { type: String },
+    hostName: { type: String },
+    avgScore: { type: Number, default: 0 },
+    dateStr: { type: String },
     winner: {
       userId: String,
       username: String,

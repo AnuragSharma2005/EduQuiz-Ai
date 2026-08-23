@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Users, Search, Ban, CheckCircle, GraduationCap, Plus, Edit, Trash2, X, Save, UserPlus } from 'lucide-react';
 import { useTeacherStore, RegisteredStudent } from './teacherStore';
@@ -10,7 +10,12 @@ export const StudentManagementView: React.FC = () => {
     deleteRegisteredStudent,
     updateRegisteredStudent,
     addRegisteredStudent,
+    fetchTeacherStudents,
   } = useTeacherStore();
+
+  useEffect(() => {
+    fetchTeacherStudents();
+  }, [fetchTeacherStudents]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [editingStudent, setEditingStudent] = useState<RegisteredStudent | null>(null);
@@ -29,9 +34,10 @@ export const StudentManagementView: React.FC = () => {
 
   const filtered = registeredStudents.filter(
     (s) =>
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.department.toLowerCase().includes(searchTerm.toLowerCase())
+      (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.department || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.id || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleOpenEdit = (student: RegisteredStudent) => {

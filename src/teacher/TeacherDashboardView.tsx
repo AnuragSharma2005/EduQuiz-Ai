@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
   BookOpen,
@@ -15,8 +15,21 @@ import { useTeacherStore } from './teacherStore';
 import { EditAssessmentModal } from './EditAssessmentModal';
 
 export const TeacherDashboardView: React.FC = () => {
-  const { assessments, startLiveSession, setSelectedTab, deleteAssessment, setEditingAssessment, editingAssessment } =
-    useTeacherStore();
+  const {
+    assessments,
+    startLiveSession,
+    setSelectedTab,
+    deleteAssessment,
+    setEditingAssessment,
+    editingAssessment,
+    fetchTeacherQuizzes,
+    fetchTeacherSessions,
+  } = useTeacherStore();
+
+  useEffect(() => {
+    fetchTeacherQuizzes();
+    fetchTeacherSessions();
+  }, [fetchTeacherQuizzes, fetchTeacherSessions]);
 
   const totalAssessments = assessments.length;
   const totalEnrolled = assessments.reduce((acc, a) => acc + (a.enrolledStudentsCount || 0), 0);
@@ -103,61 +116,82 @@ export const TeacherDashboardView: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {assessments.map((item) => (
-            <motion.div
-              key={item.id}
-              whileHover={{ y: -3 }}
-              className="bg-[#04091a] border border-sky-500/25 rounded-3xl p-6 space-y-5 flex flex-col justify-between hover:border-sky-400/60 transition-all shadow-md"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="px-3 py-1 rounded-full bg-sky-500/15 border border-sky-400/30 text-sky-300 text-[10px] font-black uppercase tracking-wider">
-                    {item.category}
-                  </span>
-                  <span className="text-xs font-bold text-sky-300/70 flex items-center gap-1">
-                    <Clock size={14} />
-                    <span>{item.timePerQuestion || 20}s / Q</span>
-                  </span>
-                </div>
-
-                <h3 className="text-lg font-black text-white mt-3 leading-snug">
-                  {item.title}
-                </h3>
-                <p className="text-xs text-sky-200/70 font-medium mt-1">
-                  Quiz covering key topics with {item.questions?.length || 0} active questions ready for instant multiplayer hosting.
+          {assessments.length === 0 ? (
+            <div className="col-span-full py-12 px-6 rounded-3xl bg-[#04091a] border border-dashed border-sky-500/30 text-center space-y-4 shadow-inner">
+              <div className="w-16 h-16 rounded-2xl bg-sky-500/10 text-sky-400 flex items-center justify-center mx-auto border border-sky-500/20 shadow-md">
+                <BookOpen size={28} />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-black text-white">No Assessments Created Yet</h3>
+                <p className="text-xs text-sky-200/70 max-w-md mx-auto font-medium">
+                  Your teacher profile is fresh and ready. Create your first interactive quiz assessment to host live multiplayer classroom sessions.
                 </p>
               </div>
+              <button
+                onClick={() => setSelectedTab('create')}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+              >
+                <Plus size={16} />
+                <span>Create Your First Assessment</span>
+              </button>
+            </div>
+          ) : (
+            assessments.map((item) => (
+              <motion.div
+                key={item.id}
+                whileHover={{ y: -3 }}
+                className="bg-[#04091a] border border-sky-500/25 rounded-3xl p-6 space-y-5 flex flex-col justify-between hover:border-sky-400/60 transition-all shadow-md"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="px-3 py-1 rounded-full bg-sky-500/15 border border-sky-400/30 text-sky-300 text-[10px] font-black uppercase tracking-wider">
+                      {item.category}
+                    </span>
+                    <span className="text-xs font-bold text-sky-300/70 flex items-center gap-1">
+                      <Clock size={14} />
+                      <span>{item.timePerQuestion || 20}s / Q</span>
+                    </span>
+                  </div>
 
-              {/* Action Buttons */}
-              <div className="space-y-2 pt-2 border-t border-sky-500/20">
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => handleStartSession(item.id)}
-                    className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-md shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Play size={14} className="fill-white" />
-                    <span>Start Session</span>
-                  </button>
-
-                  <button
-                    onClick={() => setEditingAssessment(item)}
-                    className="w-full py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Edit size={14} />
-                    <span>Edit Quiz</span>
-                  </button>
+                  <h3 className="text-lg font-black text-white mt-3 leading-snug">
+                    {item.title}
+                  </h3>
+                  <p className="text-xs text-sky-200/70 font-medium mt-1">
+                    Quiz covering key topics with {item.questions?.length || 0} active questions ready for instant multiplayer hosting.
+                  </p>
                 </div>
 
-                <button
-                  onClick={() => deleteAssessment(item.id)}
-                  className="w-full py-2 px-3 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Trash2 size={12} />
-                  <span>Delete Quiz</span>
-                </button>
-              </div>
-            </motion.div>
-          ))}
+                {/* Action Buttons */}
+                <div className="space-y-2 pt-2 border-t border-sky-500/20">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => handleStartSession(item.id)}
+                      className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-md shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Play size={14} className="fill-white" />
+                      <span>Start Session</span>
+                    </button>
+
+                    <button
+                      onClick={() => setEditingAssessment(item)}
+                      className="w-full py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Edit size={14} />
+                      <span>Edit Quiz</span>
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => deleteAssessment(item.id)}
+                    className="w-full py-2 px-3 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Trash2 size={12} />
+                    <span>Delete Quiz</span>
+                  </button>
+                </div>
+              </motion.div>
+            ))
+          )}
         </div>
       </div>
 

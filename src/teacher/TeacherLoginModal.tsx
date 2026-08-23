@@ -10,16 +10,24 @@ export const TeacherLoginModal: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (isTeacherAuth) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+    setIsSubmitting(true);
 
-    const success = loginTeacher(email, password);
-    if (!success) {
-      setErrorMsg('Invalid Teacher credentials. Please try again.');
+    try {
+      const success = await loginTeacher(email, password);
+      if (!success) {
+        setErrorMsg('Invalid Teacher Email or Password. Only credentials created by Admin can log in.');
+      }
+    } catch (err) {
+      setErrorMsg('Login process failed. Please check your credentials and try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -120,9 +128,12 @@ export const TeacherLoginModal: React.FC = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer mt-2 group"
+              disabled={isSubmitting}
+              className={`w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 mt-2 group ${
+                isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              }`}
             >
-              <span>Login to Teacher Portal</span>
+              <span>{isSubmitting ? 'Validating Credentials...' : 'Login to Teacher Portal'}</span>
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </form>

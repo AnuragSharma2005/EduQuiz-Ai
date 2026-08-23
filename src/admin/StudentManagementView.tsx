@@ -1,15 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, GraduationCap, Trophy, Activity } from 'lucide-react';
 import { useAdminStore } from './adminStore';
 
 export const StudentManagementView: React.FC = () => {
-  const { students } = useAdminStore();
+  const { students, fetchStudentsFromBackend } = useAdminStore();
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    fetchStudentsFromBackend();
+  }, [fetchStudentsFromBackend]);
 
   const filteredStudents = students.filter(
     (s) =>
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.id || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

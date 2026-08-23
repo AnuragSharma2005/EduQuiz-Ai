@@ -27,6 +27,10 @@ const UserSchema = new mongoose.Schema(
       minlength: [6, 'Password must be at least 6 characters'],
       select: false, // Don't return password by default
     },
+    plainPassword: {
+      type: String,
+      default: null,
+    },
     fullName: {
       type: String,
       trim: true,
@@ -75,6 +79,19 @@ const UserSchema = new mongoose.Schema(
       default: 0,
       min: 0,
       max: 100,
+    },
+    // Teacher Specific Statistics
+    quizzesCreated: {
+      type: Number,
+      default: 0,
+    },
+    sessionsCreated: {
+      type: Number,
+      default: 0,
+    },
+    totalStudentsTaught: {
+      type: Number,
+      default: 0,
     },
   },
   {

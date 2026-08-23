@@ -36,6 +36,26 @@ const QuizSchema = new mongoose.Schema(
       type: String,
       default: 'system',
     },
+    teacherId: {
+      type: String,
+      default: null,
+    },
+    teacherName: {
+      type: String,
+      default: null,
+    },
+    timePerQuestion: {
+      type: Number,
+      default: 20,
+    },
+    enrolledStudentsCount: {
+      type: Number,
+      default: 0,
+    },
+    avgScore: {
+      type: Number,
+      default: 0,
+    },
     isPublished: {
       type: Boolean,
       default: true,
