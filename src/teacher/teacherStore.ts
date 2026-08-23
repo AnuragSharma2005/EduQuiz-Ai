@@ -93,6 +93,7 @@ interface TeacherState {
   fetchTeacherQuizzes: () => Promise<void>;
   fetchTeacherSessions: () => Promise<void>;
   fetchTeacherStudents: () => Promise<void>;
+  deleteSession: (id: string) => Promise<void>;
   
   // Assessment CRUD
   createAssessment: (newAssessment: Omit<TeacherAssessment, 'id' | 'createdAt' | 'enrolledStudentsCount' | 'avgScore'>) => TeacherAssessment;
@@ -819,6 +820,23 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
       quiz: assessment,
     });
 
+    // Save live session immediately to MongoDB
+    fetch(`${getApiBase()}/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        roomCode,
+        quizId: assessment.id,
+        quizTitle: assessment.title,
+        quizCategory: assessment.category,
+        hostId: get().currentTeacher?.id,
+        hostEmail: get().currentTeacher?.email,
+        hostName: get().currentTeacher?.name || 'Teacher Host',
+        status: 'lobby',
+        totalQuestions: assessment.questions?.length || 0,
+      }),
+    }).catch((e) => console.warn('Live session post skipped:', e));
+
     return session;
   },
 
@@ -903,6 +921,10 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
   endLiveSession: () => {
     const session = get().activeSession;
     if (!session) return;
+
+    if (session.roomCode) {
+      socket.emit('end_game', { roomCode: session.roomCode });
+    }
 
     const currentTeacher = get().currentTeacher;
     const today = new Date();

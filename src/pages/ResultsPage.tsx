@@ -6,15 +6,25 @@ import { Trophy, RotateCcw, Home, BarChart3 } from 'lucide-react';
 import { Button, Card } from '../components/UI';
 import { useGameStore } from '../store/useGameStore';
 
+import { useStudentStore } from '../student/studentStore';
+
 export const ResultsPage = () => {
   const navigate = useNavigate();
-  const { players, resetGame } = useGameStore();
+  const { players, me, resetGame } = useGameStore();
+  const setSelectedTab = useStudentStore((s) => s.setSelectedTab);
+
   const contestants = players.filter((player) => !player.isHost);
   const finalPlayers = contestants.length > 0 ? contestants : players;
 
   const sortedPlayers = [...finalPlayers].sort((a, b) => b.score - a.score);
   const top3 = sortedPlayers.slice(0, 3);
   const rest = sortedPlayers.slice(3);
+
+  const myIndex = sortedPlayers.findIndex(
+    (p) => (me?.id && p.id === me.id) || (me?.username && p.username?.toLowerCase() === me.username.toLowerCase())
+  );
+  const myRank = myIndex !== -1 ? myIndex + 1 : 1;
+  const myPlayerObj = myIndex !== -1 ? sortedPlayers[myIndex] : (sortedPlayers[0] || me);
 
   useEffect(() => {
     confetti({
@@ -27,20 +37,44 @@ export const ResultsPage = () => {
 
   const handlePlayAgain = () => {
     resetGame();
+    setSelectedTab('join');
     navigate('/');
   };
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-6 overflow-x-hidden">
-      <div className="max-w-5xl mx-auto pt-12 pb-24">
+      <div className="max-w-5xl mx-auto pt-6 pb-24">
         
+        {/* Personal Rank Highlight Banner */}
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="mb-10 p-6 rounded-3xl bg-gradient-to-r from-indigo-950/80 via-blue-900/60 to-purple-950/80 border border-sky-500/30 text-center shadow-2xl relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="text-xs font-black tracking-widest text-sky-400 uppercase mb-1">
+            BATTLE RESULT COMPLETED
+          </div>
+          <h2 className="text-3xl sm:text-5xl font-black italic uppercase tracking-tight text-white">
+            {myRank === 1 ? '🎉 WINNER! CHAMPION RANK #1' : `YOUR RANK: #${myRank} OUT OF ${sortedPlayers.length}`}
+          </h2>
+          <div className="mt-3 flex items-center justify-center gap-6 text-sm sm:text-lg font-bold text-slate-300">
+            <span className="bg-white/10 px-4 py-1.5 rounded-full border border-white/10 text-amber-300 font-extrabold">
+              Score: {myPlayerObj?.score || 0} pts
+            </span>
+            <span className="bg-white/10 px-4 py-1.5 rounded-full border border-white/10 text-emerald-300 font-extrabold">
+              Correct: {myPlayerObj?.correctAnswers || 0}
+            </span>
+          </div>
+        </motion.div>
+
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="text-center mb-20"
+          className="text-center mb-12"
         >
-          <h2 className="text-7xl md:text-8xl font-black italic uppercase tracking-tighter mb-4">Champions</h2>
-          <p className="text-white/40 text-xl font-bold tracking-widest uppercase">The battle has ended</p>
+          <h3 className="text-4xl sm:text-5xl font-black italic uppercase tracking-tighter mb-2">Podium Champions</h3>
+          <p className="text-white/40 text-sm font-bold tracking-widest uppercase">Classroom Live Leaderboard</p>
         </motion.div>
 
         {/* Podium */}

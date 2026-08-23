@@ -5,34 +5,67 @@ import { ArrowLeft, Play, Hash } from 'lucide-react';
 import { Button, Input, Card } from '../components/UI';
 import { AvatarPicker } from '../components/AvatarPicker';
 import { useGameStore } from '../store/useGameStore';
+import { useStudentStore } from '../student/studentStore';
+import { StudentLoginModal } from '../student/StudentLoginModal';
 import { AVATARS } from '../utils/constants';
 import socket from '../services/socket';
+import { getApiBase } from '../services/config';
 
 export const JoinPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { setMe, setRoomCode } = useGameStore();
+  const { isStudentAuth, currentStudent, setRoomCodeInput } = useStudentStore();
   
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(currentStudent?.name || '');
   const [avatar, setAvatar] = useState(AVATARS[0]);
   const [code, setCode] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const inviteCode = params.get('code');
 
     if (inviteCode) {
-      setCode(inviteCode.toUpperCase());
+      const cleanCode = inviteCode.toUpperCase();
+      setCode(cleanCode);
+      setRoomCodeInput(cleanCode);
     }
-  }, [location.search]);
+  }, [location.search, setRoomCodeInput]);
 
-  const handleJoin = () => {
-    if (!username.trim() || !code.trim()) return;
+  useEffect(() => {
+    if (currentStudent?.name) {
+      setUsername(currentStudent.name);
+    }
+  }, [currentStudent]);
+
+  const handleJoin = async () => {
+    const activeName = currentStudent?.name || username || currentStudent?.email || 'Student Player';
+    if (!activeName.trim() || !code.trim()) return;
     
     const cleanCode = code.trim().toUpperCase();
+    setErrorMsg('');
+
+    try {
+      const res = await fetch(`${getApiBase()}/sessions/validate/${encodeURIComponent(cleanCode)}`);
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.valid || !data.active) {
+        const msg = data.message || `Invalid Session ID "${cleanCode}"! Please enter a valid room code provided by your teacher.`;
+        setErrorMsg(msg);
+        alert(`❌ Invalid Session ID: "${cleanCode}"\n\nNo active teacher session found for this room code. Please ask your teacher for a valid room code.`);
+        return;
+      }
+    } catch (e) {
+      setErrorMsg('Unable to connect to server for session validation.');
+      alert('⚠️ Server connection error. Please check your network connection.');
+      return;
+    }
+
     const newPlayer = {
-      id: Math.random().toString(36).substr(2, 9),
-      username: username.trim(),
+      id: currentStudent?.id || Math.random().toString(36).substr(2, 9),
+      username: activeName.trim(),
+      email: currentStudent?.email || '',
       avatar,
       score: 0,
       isReady: false,
@@ -48,7 +81,8 @@ export const JoinPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-6 flex items-center justify-center">
+    <div className="min-h-screen bg-[#050505] text-white p-6 flex items-center justify-center relative">
+      {!isStudentAuth && <StudentLoginModal />}
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -68,13 +102,20 @@ export const JoinPage = () => {
           
           <div className="space-y-8">
             <div>
-              <label className="block text-xs font-bold text-white/40 uppercase tracking-widest mb-3">Choose Your Identity</label>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-xs font-bold text-sky-300 uppercase tracking-widest">Student Battle Identity</label>
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 bg-amber-950/80 border border-amber-600/50 px-2.5 py-0.5 rounded-full">
+                  🔒 Logged In Account
+                </span>
+              </div>
               <Input
-                placeholder="Enter Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="text-xl font-bold py-4"
+                disabled
+                value={currentStudent.name || username || currentStudent.email || 'Student'}
+                className="text-xl font-bold py-4 bg-slate-900/80 text-sky-200 cursor-not-allowed opacity-80"
               />
+              <p className="text-[11px] text-slate-400 mt-2 font-medium">
+                Signed in as <span className="text-sky-300 font-bold">{currentStudent.name || currentStudent.email}</span>. To edit your identity, update your <span className="text-sky-400 font-bold">Student Profile</span>.
+              </p>
             </div>
 
             <div>
@@ -95,6 +136,12 @@ export const JoinPage = () => {
                 />
               </div>
             </div>
+
+            {errorMsg && (
+              <div className="p-3 rounded-2xl bg-rose-950/60 border border-rose-800/60 text-rose-300 text-xs font-bold text-center">
+                {errorMsg}
+              </div>
+            )}
 
             <Button
               size="xl"

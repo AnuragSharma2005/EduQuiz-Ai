@@ -31,6 +31,7 @@ import { useTeacherStore } from '../teacher/teacherStore';
 import { useAuth } from '../context/AuthContext';
 import socket from '../services/socket';
 import { PortalModal } from '../admin/PortalModal';
+import { getApiBase } from '../services/config';
 
 // --- Sub-components ---
 
@@ -169,7 +170,9 @@ export const LandingPage = () => {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  const handleJoin = () => {
+  const [roomError, setRoomError] = useState('');
+
+  const handleJoin = async () => {
     // If student is not logged in, navigate to student login portal
     if (!isStudentAuth) {
       navigate('/student');
@@ -179,6 +182,23 @@ export const LandingPage = () => {
     if (!username || !roomCode) {
       navigate('/student');
       return;
+    }
+
+    setRoomError('');
+    const cleanCode = roomCode.trim().toUpperCase();
+
+    try {
+      const res = await fetch(`${getApiBase()}/sessions/validate/${encodeURIComponent(cleanCode)}`);
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.valid) {
+        const errorText = data.message || 'Invalid Session ID! Please enter a valid active room code created by your teacher.';
+        setRoomError(errorText);
+        alert(`❌ Invalid Session ID: "${cleanCode}"\n\nPlease enter a valid active room code created by a registered teacher.`);
+        return;
+      }
+    } catch (e) {
+      console.warn('Backend session validation skipped:', e);
     }
 
     const newPlayer = {
@@ -191,9 +211,9 @@ export const LandingPage = () => {
     };
 
     setMe(newPlayer);
-    setRoomCode(roomCode);
-    socket.emit('join_room', { roomCode, player: newPlayer });
-    navigate(`/lobby/${roomCode}`);
+    setRoomCode(cleanCode);
+    socket.emit('join_room', { roomCode: cleanCode, player: newPlayer });
+    navigate(`/lobby/${cleanCode}`);
   };
 
   const handleHostGame = () => {

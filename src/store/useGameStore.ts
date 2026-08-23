@@ -52,6 +52,7 @@ interface GameState {
   currentQuiz: Quiz | null;
   currentQuestionIndex: number;
   timer: number;
+  questionStartTime?: number;
   questionAnsweredPlayerIds: string[];
   
   // Actions
@@ -83,14 +84,34 @@ export const useGameStore = create<GameState>((set) => ({
   questionAnsweredPlayerIds: [],
 
   setRoomCode: (code) => set({ roomCode: code }),
-  setPlayers: (players) => set({ players }),
+  setPlayers: (players) =>
+    set(() => {
+      const map = new Map<string, Player>();
+      (players || []).forEach((p) => {
+        const key = (p.id || p.username || '').toLowerCase();
+        if (key) map.set(key, p);
+      });
+      return { players: Array.from(map.values()) };
+    }),
   setStatus: (status) => set({ status }),
   setCurrentQuiz: (quiz) => set({ currentQuiz: quiz }),
   setCurrentQuestionIndex: (index) => set({ currentQuestionIndex: index }),
   setTimer: (time) => set({ timer: time }),
   setQuestionAnsweredPlayerIds: (playerIds) => set({ questionAnsweredPlayerIds: playerIds }),
   
-  addPlayer: (player) => set((state) => ({ players: [...state.players, player] })),
+  addPlayer: (player) =>
+    set((state) => {
+      const pKey = (player.id || player.username || '').toLowerCase();
+      const existingIdx = state.players.findIndex(
+        (p) => (p.id && p.id === player.id) || (p.username && p.username.toLowerCase() === (player.username || '').toLowerCase())
+      );
+      if (existingIdx !== -1) {
+        const updated = [...state.players];
+        updated[existingIdx] = { ...updated[existingIdx], ...player };
+        return { players: updated };
+      }
+      return { players: [...state.players, player] };
+    }),
   removePlayer: (playerId) => set((state) => ({ 
     players: state.players.filter(p => p.id !== playerId) 
   })),
@@ -100,13 +121,24 @@ export const useGameStore = create<GameState>((set) => ({
   updatePlayerScore: (playerId, score, correct) => set((state) => ({
     players: state.players.map(p => p.id === playerId ? { ...p, score: p.score + score, lastAnswerCorrect: correct } : p)
   })),
-  syncWithRoom: (roomData) => set({
-    players: roomData.players,
-    status: roomData.status,
-    currentQuiz: roomData.currentQuiz,
-    currentQuestionIndex: roomData.currentQuestionIndex,
-    questionAnsweredPlayerIds: roomData.questionAnsweredPlayerIds || [],
-  }),
+  syncWithRoom: (roomData) =>
+    set(() => {
+      const map = new Map<string, Player>();
+      if (Array.isArray(roomData.players)) {
+        roomData.players.forEach((p: Player) => {
+          const key = (p.id || p.username || '').toLowerCase();
+          if (key) map.set(key, p);
+        });
+      }
+      return {
+        players: Array.from(map.values()),
+        status: roomData.status,
+        currentQuiz: roomData.currentQuiz,
+        currentQuestionIndex: roomData.currentQuestionIndex,
+        questionStartTime: roomData.questionStartTime,
+        questionAnsweredPlayerIds: roomData.questionAnsweredPlayerIds || [],
+      };
+    }),
   resetGame: () => set({
     roomCode: null,
     players: [],

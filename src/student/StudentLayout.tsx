@@ -10,6 +10,8 @@ import { GamePage } from '../pages/GamePage';
 import { ResultsPage } from '../pages/ResultsPage';
 import { ParticleBackground } from '../components/ParticleBackground';
 
+import { useGameStore } from '../store/useGameStore';
+
 export const StudentLayout: React.FC = () => {
   const navigate = useNavigate();
   const {
@@ -19,6 +21,19 @@ export const StudentLayout: React.FC = () => {
     selectedTab,
     setSelectedTab,
   } = useStudentStore();
+  const { status } = useGameStore();
+  const prevStatusRef = React.useRef(status);
+
+  React.useEffect(() => {
+    if (prevStatusRef.current !== status) {
+      if (status === 'starting' || status === 'question') {
+        setSelectedTab('quiz');
+      } else if (status === 'finished') {
+        setSelectedTab('results');
+      }
+      prevStatusRef.current = status;
+    }
+  }, [status, setSelectedTab]);
 
   const renderContent = () => {
     switch (selectedTab) {
@@ -49,7 +64,13 @@ export const StudentLayout: React.FC = () => {
 
       {/* Top Header Bar */}
       <header className="bg-[#050b1e]/85 backdrop-blur-xl border-b border-sky-500/20 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-lg shadow-sky-950/20">
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setSelectedTab('join')}>
+        <div
+          className="flex items-center gap-3 cursor-pointer"
+          onClick={() => {
+            useGameStore.getState().resetGame();
+            setSelectedTab('join');
+          }}
+        >
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 flex items-center justify-center shadow-lg shadow-sky-500/30 animate-pulse">
             <Zap size={22} className="text-white fill-white" />
           </div>
@@ -75,7 +96,10 @@ export const StudentLayout: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setSelectedTab('join')}
+            onClick={() => {
+              useGameStore.getState().resetGame();
+              setSelectedTab('join');
+            }}
             className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
               selectedTab === 'join' || selectedTab === 'lobby' || selectedTab === 'quiz'
                 ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/30 border border-sky-400/50'

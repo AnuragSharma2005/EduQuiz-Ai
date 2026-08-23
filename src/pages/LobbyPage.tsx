@@ -57,6 +57,7 @@ export const LobbyPage = () => {
     setCurrentQuiz,
     setStatus,
     addPlayer,
+    setPlayers,
     setRoomCode
   } = useGameStore();
 
@@ -71,28 +72,29 @@ export const LobbyPage = () => {
   }, [code, setRoomCode]);
 
   useEffect(() => {
-    let localPlayer = players.find(p => p.id === socket.id);
-    if (!localPlayer) {
-      localPlayer = {
-        id: socket.id || `st_${Date.now()}`,
-        username: isStudentAuth && currentStudent.name ? currentStudent.name : `Student_${Math.floor(1000 + Math.random() * 9000)}`,
-        score: 0,
-        isReady: true,
-        avatar: isStudentAuth && currentStudent.avatar ? currentStudent.avatar : `https://api.dicebear.com/7.x/avataaars/svg?seed=${socket.id || 'guest'}`,
-        isHost: false,
-      };
+    const existingPlayer = me || players.find(p => (p.id && (p.id === socket.id || p.id === currentStudent?.id)) || (p.username && p.username === currentStudent?.name));
+    const localPlayer = existingPlayer || {
+      id: currentStudent?.id || socket.id || `st_${Date.now()}`,
+      username: isStudentAuth && currentStudent.name ? currentStudent.name : `Student_${Math.floor(1000 + Math.random() * 9000)}`,
+      score: 0,
+      isReady: true,
+      avatar: isStudentAuth && currentStudent.avatar ? currentStudent.avatar : `https://api.dicebear.com/7.x/avataaars/svg?seed=${socket.id || 'guest'}`,
+      isHost: false,
+    };
+
+    if (!existingPlayer) {
       addPlayer(localPlayer);
     }
 
     if (code) {
       socket.emit('join_room', { roomCode: code, player: localPlayer });
     }
-  }, [code, players, addPlayer, isStudentAuth, currentStudent]);
+  }, [code, isStudentAuth, currentStudent]);
 
   useEffect(() => {
     const handleRoomPlayers = (data: { players: any[] }) => {
       if (Array.isArray(data.players)) {
-        data.players.forEach((p) => addPlayer(p));
+        setPlayers(data.players);
       }
     };
 
@@ -103,7 +105,7 @@ export const LobbyPage = () => {
       socket.off('room_players', handleRoomPlayers);
       socket.off('player_joined');
     };
-  }, [addPlayer]);
+  }, [addPlayer, setPlayers]);
 
   const inviteLink = `${window.location.origin}/join/${code}`;
 

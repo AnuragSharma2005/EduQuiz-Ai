@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import GameSession from '../models/GameSession.js';
 import Quiz from '../models/Quiz.js';
 import User from '../models/User.js';
+import { isRoomActive } from '../socket/gameHandlers.js';
 
 const router = Router();
 
@@ -274,6 +275,51 @@ router.delete('/:id', async (req, res, next) => {
     }
 
     res.json({ message: 'Session deleted successfully', id: session._id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// GET /api/sessions/validate/:roomCode  ← Validate active live session ID
+// ─────────────────────────────────────────────────────────────
+router.get('/validate/:roomCode', async (req, res, next) => {
+  try {
+    const code = String(req.params.roomCode || '').trim().toUpperCase();
+    if (!code) {
+      return res.status(400).json({ valid: false, active: false, message: 'Room code is required' });
+    }
+
+    // 1. Check in-memory active socket rooms created by teacher
+    const activeInMemory = isRoomActive(code);
+    if (activeInMemory) {
+      return res.json({ valid: true, active: true, message: 'Active live session found!' });
+    }
+
+    // 2. Check MongoDB GameSession collection for any teacher-created session with this room code
+    const session = await GameSession.findOne({
+      roomCode: code,
+    }).lean();
+
+    if (session && session.status !== 'finished') {
+      return res.json({
+        valid: true,
+        active: true,
+        session: {
+          id: session._id,
+          roomCode: session.roomCode,
+          quizTitle: session.quizTitle,
+          hostName: session.hostName,
+        }
+      });
+    }
+
+    // 3. No active teacher session exists with this room code
+    return res.status(404).json({
+      valid: false,
+      active: false,
+      message: `Invalid Session ID "${code}"! No active session has been created by a teacher with this code. Please ask your teacher for a valid room code.`,
+    });
   } catch (err) {
     next(err);
   }

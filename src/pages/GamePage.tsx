@@ -51,7 +51,7 @@ const DEFAULT_FALLBACK_QUIZ = {
 export const GamePage = () => {
   const navigate = useNavigate();
   const { code } = useParams();
-  const { currentQuiz, currentQuestionIndex, status, players, me } = useGameStore();
+  const { currentQuiz, currentQuestionIndex, status, players, me, questionStartTime } = useGameStore();
 
   const isHost = Boolean(me?.isHost);
   const contestants = players.filter((player) => !player.isHost);
@@ -161,20 +161,31 @@ export const GamePage = () => {
   }, [showFeedback, isHost, selectedAnswer, submitAnswerToServer]);
 
   useEffect(() => {
-    if (status === 'question' && timeLeft > 0 && !showFeedback) {
-      const timer = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
-      return () => clearInterval(timer);
-    }
+    if (status !== 'question' || showFeedback) return;
 
-    if (status === 'question' && timeLeft === 0 && !showFeedback) {
-      if (isHost) {
-        socket.emit('show_leaderboard', { roomCode: code });
+    const updateSyncTimer = () => {
+      if (questionStartTime) {
+        const elapsed = Math.floor((Date.now() - questionStartTime) / 1000);
+        const remaining = Math.max(0, (currentQuestion?.timeLimit || 15) - elapsed);
+        setTimeLeft(remaining);
+
+        if (remaining === 0) {
+          if (isHost) {
+            socket.emit('show_leaderboard', { roomCode: code });
+          } else {
+            if (selectedAnswer === null) setSelectedAnswer(-1);
+            submitAnswerToServer(-1);
+          }
+        }
       } else {
-        if (selectedAnswer === null) setSelectedAnswer(-1);
-        submitAnswerToServer(-1);
+        setTimeLeft((prev) => Math.max(0, prev - 1));
       }
-    }
-  }, [status, timeLeft, showFeedback, isHost, code, selectedAnswer, submitAnswerToServer]);
+    };
+
+    updateSyncTimer();
+    const timer = setInterval(updateSyncTimer, 1000);
+    return () => clearInterval(timer);
+  }, [status, questionStartTime, currentQuestionIndex, showFeedback, isHost, code, selectedAnswer, submitAnswerToServer]);
 
   const nextQuestion = () => {
     socket.emit('next_question', { roomCode: code });

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import socket from '../services/socket';
 import { useGameStore } from '../store/useGameStore';
+import { getApiBase } from '../services/config';
 
 export interface StudentProfile {
   id: string;
@@ -37,6 +38,8 @@ interface StudentState {
 
   // Actions
   loginStudent: (email: string, name?: string) => void;
+  loginStudentApi: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signupStudentApi: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   loginWithGoogle: () => void;
   logoutStudent: () => void;
   setSelectedTab: (tab: StudentState['selectedTab']) => void;
@@ -47,6 +50,7 @@ interface StudentState {
   setRoomCodeInput: (code: string) => void;
 
   joinBattleRoom: (code?: string) => boolean;
+  validateAndJoinRoom: (code?: string) => Promise<{ success: boolean; error?: string }>;
   addHistoryItem: (item: StudentAssessmentHistoryItem) => void;
 }
 
@@ -97,53 +101,174 @@ const DEFAULT_HISTORY: StudentAssessmentHistoryItem[] = [
   },
 ];
 
+const getInitialStudentUser = (): StudentProfile | null => {
+  try {
+    const savedToken = localStorage.getItem('student_token');
+    const savedUser = localStorage.getItem('student_user');
+    if (savedToken && savedUser) {
+      if (savedToken.startsWith('temp_') || savedToken.startsWith('mock_')) {
+        localStorage.removeItem('student_token');
+        localStorage.removeItem('student_user');
+        return null;
+      }
+      return JSON.parse(savedUser);
+    }
+  } catch (e) {}
+  return null;
+};
+
+const getInitialStudentAuth = (): boolean => {
+  const token = localStorage.getItem('student_token');
+  const user = localStorage.getItem('student_user');
+  if (!token || !user) return false;
+  if (token.startsWith('temp_') || token.startsWith('mock_')) {
+    localStorage.removeItem('student_token');
+    localStorage.removeItem('student_user');
+    return false;
+  }
+  return true;
+};
+
+const initialUser = getInitialStudentUser();
+
 export const useStudentStore = create<StudentState>((set, get) => ({
-  currentStudent: {
-    id: 'std_101',
-    name: 'Anurag Sharma',
-    email: 'anurag.student@edupulse.ai',
+  currentStudent: initialUser || {
+    id: '',
+    name: '',
+    email: '',
     avatar: DEFAULT_AVATARS[0],
     school: 'School of Engineering & Tech',
     department: 'Computer Science',
-    createdAt: '2026-01-15',
+    createdAt: new Date().toISOString(),
   },
-  isStudentAuth: true,
+  isStudentAuth: getInitialStudentAuth(),
   selectedTab: 'join',
   assessmentHistory: DEFAULT_HISTORY,
 
-  usernameInput: 'Anurag Sharma',
-  selectedAvatar: DEFAULT_AVATARS[0],
+  usernameInput: initialUser?.name || '',
+  selectedAvatar: initialUser?.avatar || DEFAULT_AVATARS[0],
   roomCodeInput: '',
 
   loginStudent: (email, name) => {
-    const studentName = name || email.split('@')[0] || 'Student User';
-    set({
-      isStudentAuth: true,
-      currentStudent: {
-        ...get().currentStudent,
-        email,
-        name: studentName,
-      },
-      usernameInput: studentName,
-    });
+    // Deprecated mock login replaced with strict login call requirement
+    console.warn('Direct mock login bypass is disabled. Use loginStudentApi or signupStudentApi.');
+  },
+
+  loginStudentApi: async (email, password) => {
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      const res = await fetch(`${getApiBase()}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.user || !data.token) {
+        return {
+          success: false,
+          error: data.error || 'Invalid email or password. If you do not have an account, please register/sign up first!',
+        };
+      }
+
+      const studentUser: StudentProfile = {
+        id: data.user._id || data.user.id || 'std_' + Date.now(),
+        name: data.user.fullName || data.user.username || cleanEmail.split('@')[0],
+        email: data.user.email,
+        avatar: data.user.avatar || DEFAULT_AVATARS[0],
+        department: data.user.department || 'Computer Science',
+        createdAt: data.user.createdAt || new Date().toISOString(),
+      };
+
+      localStorage.setItem('student_token', data.token);
+      localStorage.setItem('student_user', JSON.stringify(studentUser));
+
+      set({
+        isStudentAuth: true,
+        currentStudent: studentUser,
+        usernameInput: studentUser.name,
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: 'Unable to connect to database server. Please try again.',
+      };
+    }
+  },
+
+  signupStudentApi: async (name, email, password) => {
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanName = name.trim();
+      const username = cleanName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase() + '_' + Math.floor(Math.random() * 1000);
+
+      const res = await fetch(`${getApiBase()}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          email: cleanEmail,
+          password,
+          fullName: cleanName,
+          role: 'player',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.user || !data.token) {
+        return {
+          success: false,
+          error: data.error || 'Failed to create student account in MongoDB.',
+        };
+      }
+
+      const studentUser: StudentProfile = {
+        id: data.user._id || data.user.id || 'std_' + Date.now(),
+        name: data.user.fullName || cleanName,
+        email: data.user.email,
+        avatar: data.user.avatar || DEFAULT_AVATARS[0],
+        department: 'Computer Science',
+        createdAt: data.user.createdAt || new Date().toISOString(),
+      };
+
+      localStorage.setItem('student_token', data.token);
+      localStorage.setItem('student_user', JSON.stringify(studentUser));
+
+      set({
+        isStudentAuth: true,
+        currentStudent: studentUser,
+        usernameInput: studentUser.name,
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: 'Unable to connect to database server. Please try again.',
+      };
+    }
   },
 
   loginWithGoogle: () => {
-    set({
-      isStudentAuth: true,
-      currentStudent: {
-        ...get().currentStudent,
-        name: 'Anurag (Google User)',
-        email: 'anurag.google@gmail.com',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=GoogleUser',
-      },
-      usernameInput: 'Anurag (Google User)',
-      selectedAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=GoogleUser',
-    });
+    console.warn('Google login mock bypass disabled.');
   },
 
   logoutStudent: () => {
-    set({ isStudentAuth: false });
+    localStorage.removeItem('student_token');
+    localStorage.removeItem('student_user');
+    set({
+      isStudentAuth: false,
+      currentStudent: {
+        id: '',
+        name: '',
+        email: '',
+        avatar: DEFAULT_AVATARS[0],
+        school: 'School of Engineering & Tech',
+        department: 'Computer Science',
+        createdAt: new Date().toISOString(),
+      },
+      usernameInput: '',
+    });
   },
 
   setSelectedTab: (tab) => set({ selectedTab: tab }),
@@ -170,7 +295,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     const avatar = get().selectedAvatar || student.avatar;
 
     const studentPlayer = {
-      id: 'std_' + Math.random().toString(36).substring(2, 9),
+      id: student.id || (student as any)._id || socket.id || 'std_' + (student.email || name).replace(/[^a-z0-9]/gi, '').toLowerCase(),
       username: name,
       avatar,
       score: 0,
@@ -188,6 +313,33 @@ export const useStudentStore = create<StudentState>((set, get) => ({
 
     set({ selectedTab: 'lobby' });
     return true;
+  },
+
+  validateAndJoinRoom: async (code) => {
+    const targetCode = (code || get().roomCodeInput).trim().toUpperCase();
+    if (!targetCode) {
+      return { success: false, error: 'Please enter a 6-digit room code!' };
+    }
+
+    try {
+      const res = await fetch(`${getApiBase()}/sessions/validate/${encodeURIComponent(targetCode)}`);
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.valid || !data.active) {
+        return {
+          success: false,
+          error: data.message || `Invalid Session ID "${targetCode}"! No active session found. Please ask your teacher for a valid room code.`,
+        };
+      }
+
+      get().joinBattleRoom(targetCode);
+      return { success: true };
+    } catch (e) {
+      return {
+        success: false,
+        error: 'Unable to connect to server to validate session code. Please try again.',
+      };
+    }
   },
 
   addHistoryItem: (item) => {

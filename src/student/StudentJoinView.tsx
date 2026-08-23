@@ -27,21 +27,24 @@ export const StudentJoinView: React.FC = () => {
     setSelectedAvatar,
     roomCodeInput,
     setRoomCodeInput,
-    joinBattleRoom,
+    validateAndJoinRoom,
   } = useStudentStore();
 
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleJoinSubmit = (e: React.FormEvent) => {
+  const handleJoinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!roomCodeInput.trim()) {
       setErrorMsg('Please enter a valid 6-digit room code.');
       return;
     }
     setErrorMsg('');
-    const success = joinBattleRoom(roomCodeInput);
-    if (!success) {
-      setErrorMsg('Unable to connect to room. Please check the room code.');
+    setIsSubmitting(true);
+    const result = await validateAndJoinRoom(roomCodeInput);
+    setIsSubmitting(false);
+    if (!result.success) {
+      setErrorMsg(result.error || 'Invalid Session ID! Please enter a valid room code created by your teacher.');
     }
   };
 
@@ -72,17 +75,24 @@ export const StudentJoinView: React.FC = () => {
         <form onSubmit={handleJoinSubmit} className="space-y-6">
           {/* Section 1: Choose Your Identity */}
           <div className="space-y-2">
-            <label className="text-[10px] font-extrabold uppercase tracking-widest text-sky-300/80 block">
-              CHOOSE YOUR IDENTITY
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-extrabold uppercase tracking-widest text-sky-300/80 block">
+                STUDENT BATTLE IDENTITY
+              </label>
+              <span className="text-[9px] font-black uppercase tracking-wider text-amber-400 bg-amber-950/80 border border-amber-600/50 px-2 py-0.5 rounded-full">
+                🔒 Logged In Account
+              </span>
+            </div>
             <input
               type="text"
-              required
-              value={usernameInput}
-              onChange={(e) => setUsernameInput(e.target.value)}
-              placeholder="Enter Username"
-              className="w-full px-5 py-4 rounded-2xl bg-[#04091a] border border-sky-500/30 text-white font-extrabold text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-sky-400 placeholder:text-slate-600 shadow-inner"
+              readOnly
+              disabled
+              value={currentStudent.name || usernameInput || currentStudent.email}
+              className="w-full px-5 py-4 rounded-2xl bg-[#04091a] border border-sky-500/30 text-sky-200 font-extrabold text-sm sm:text-base cursor-not-allowed opacity-80 shadow-inner"
             />
+            <p className="text-[11px] text-slate-400 font-medium">
+              Signed in as <span className="text-sky-300 font-bold">{currentStudent.name || currentStudent.email}</span>. To edit your identity, go to <span className="text-sky-400 font-bold">Student Profile</span>.
+            </p>
           </div>
 
           {/* Section 2: Select Avatar */}

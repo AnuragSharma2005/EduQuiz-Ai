@@ -5,6 +5,12 @@ import { updateUserStatsAfterGame } from '../utils/updateUserStats.js';
 // In-memory room state — cleared on server restart (intentional: rooms are transient)
 const rooms = new Map();
 
+export function isRoomActive(roomCode) {
+  if (!roomCode) return false;
+  const clean = String(roomCode).trim().toUpperCase();
+  return rooms.has(clean);
+}
+
 function createRoom(roomCode) {
   return {
     code: roomCode,
@@ -102,8 +108,16 @@ export function registerGameHandlers(io, socket) {
     socket.join(roomCode);
 
     if (!rooms.has(roomCode)) {
-      rooms.set(roomCode, createRoom(roomCode));
-      console.log(`🏠 Room created: ${roomCode}`);
+      if (player && player.isHost) {
+        rooms.set(roomCode, createRoom(roomCode));
+        console.log(`🏠 Teacher Host created room: ${roomCode}`);
+      } else {
+        console.warn(`⚠️ Rejected student join for room ${roomCode}: No active teacher room found.`);
+        socket.emit('room_error', {
+          message: `Invalid Session ID "${roomCode}"! No active session has been created by a teacher with this code.`,
+        });
+        return;
+      }
     }
 
     const room = rooms.get(roomCode);
@@ -242,6 +256,7 @@ export function registerGameHandlers(io, socket) {
       const r = rooms.get(roomCode);
       if (!r) return;
       r.status = 'question';
+      r.questionStartTime = Date.now();
       io.to(roomCode).emit('room_update', r);
     }, 3000);
   });
@@ -336,6 +351,7 @@ export function registerGameHandlers(io, socket) {
     if (totalQuestions > 0 && room.currentQuestionIndex < totalQuestions - 1) {
       room.currentQuestionIndex += 1;
       room.status = 'question';
+      room.questionStartTime = Date.now();
       room.questionAnsweredPlayerIds = [];
     } else if (totalQuestions > 0 && room.currentQuestionIndex >= totalQuestions - 1) {
       // Last question done → finish the game
@@ -347,6 +363,18 @@ export function registerGameHandlers(io, socket) {
     }
 
     io.to(roomCode).emit('room_update', room);
+  });
+
+  // ── End Game ─────────────────────────────────────────────────
+  socket.on('end_game', async ({ roomCode }) => {
+    const room = rooms.get(roomCode);
+    if (!room) return;
+
+    room.status = 'finished';
+    const gameDuration = room.gameStartTime ? Math.round((Date.now() - room.gameStartTime) / 1000) : 0;
+    await saveGameSession(room, gameDuration);
+    io.to(roomCode).emit('room_update', room);
+    console.log(`🏁 Game manually ended by host in room ${roomCode}`);
   });
 
   // ── Disconnect ───────────────────────────────────────────────
