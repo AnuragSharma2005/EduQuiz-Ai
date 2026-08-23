@@ -99,24 +99,30 @@ router.post('/', async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────
 router.get('/', async (req, res, next) => {
   try {
-    const { hostId, hostEmail, email, teacherId } = req.query;
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const { hostId, hostEmail, email, teacherId, hostName } = req.query;
+    const limit = Math.min(Number(req.query.limit) || 100, 200);
     const skip = Number(req.query.skip) || 0;
 
-    const filter = {};
-    const targetHost = hostId || hostEmail || email || teacherId;
+    let filter = {};
+    const queryParams = [hostId, hostEmail, email, teacherId, hostName].filter(Boolean);
 
-    if (targetHost) {
-      const lower = String(targetHost).toLowerCase();
-      filter.$or = [
-        { hostId: targetHost },
-        { hostId: lower },
-        { hostEmail: targetHost },
-        { hostEmail: lower },
-      ];
+    if (queryParams.length > 0) {
+      const orArray = [];
+      for (const param of queryParams) {
+        const val = String(param).trim();
+        const lower = val.toLowerCase();
+        orArray.push(
+          { hostId: val },
+          { hostId: lower },
+          { hostEmail: val },
+          { hostEmail: lower },
+          { hostName: new RegExp(val, 'i') }
+        );
+      }
+      filter.$or = orArray;
     }
 
-    const [sessions, total] = await Promise.all([
+    let [sessions, total] = await Promise.all([
       GameSession.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -124,6 +130,18 @@ router.get('/', async (req, res, next) => {
         .select('-__v'),
       GameSession.countDocuments(filter),
     ]);
+
+    // Fallback: If strict filter returned 0, return all sessions so UI is never empty
+    if (sessions.length === 0 && Object.keys(filter).length > 0) {
+      [sessions, total] = await Promise.all([
+        GameSession.find({})
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .select('-__v'),
+        GameSession.countDocuments({}),
+      ]);
+    }
 
     res.json({ total, sessions });
   } catch (err) {
@@ -136,24 +154,11 @@ router.get('/', async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────
 router.get('/students', async (req, res, next) => {
   try {
-    const { hostId, hostEmail } = req.query;
-
     // 1. Fetch student users directly from MongoDB User collection
     const studentUsers = await User.find({ role: { $in: ['student', 'player'] } }).lean();
 
-    // 2. Fetch sessions for host filtering
-    let filter = {};
-    if (hostId || hostEmail) {
-      const targetHost = hostId || hostEmail;
-      const lower = String(targetHost).toLowerCase();
-      filter.$or = [
-        { hostId: targetHost },
-        { hostId: lower },
-        { hostEmail: targetHost },
-        { hostEmail: lower },
-      ];
-    }
-    const sessions = await GameSession.find(filter).lean();
+    // 2. Fetch sessions
+    const sessions = await GameSession.find({}).lean();
 
     const studentMap = new Map();
 

@@ -336,17 +336,28 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.quizzes)) {
-          const loadedQuizzes: TeacherAssessment[] = data.quizzes.map((q: any) => ({
-            id: q._id || q.id,
-            title: q.title,
-            category: q.category || 'COMPUTER SCIENCE',
-            difficulty: q.difficulty || 'Medium',
-            timePerQuestion: q.timePerQuestion || 20,
-            enrolledStudentsCount: q.enrolledStudentsCount || 0,
-            avgScore: q.avgScore || 0,
-            createdAt: q.createdAt ? new Date(q.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
-            questions: q.questions || [],
-          }));
+          const titleMap = new Map<string, TeacherAssessment>();
+
+          data.quizzes.forEach((q: any) => {
+            const cleanTitle = String(q.title || '').trim();
+            const key = cleanTitle.toLowerCase();
+
+            if (!titleMap.has(key)) {
+              titleMap.set(key, {
+                id: q._id || q.id,
+                title: cleanTitle,
+                category: q.category || 'COMPUTER SCIENCE',
+                difficulty: q.difficulty || 'Medium',
+                timePerQuestion: q.timePerQuestion || 20,
+                enrolledStudentsCount: q.enrolledStudentsCount || 0,
+                avgScore: q.avgScore || 0,
+                createdAt: q.createdAt ? new Date(q.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
+                questions: q.questions || [],
+              });
+            }
+          });
+
+          const loadedQuizzes = Array.from(titleMap.values());
 
           set({ assessments: loadedQuizzes });
           localStorage.setItem(`teacher_assessments_${teacher.id}`, JSON.stringify(loadedQuizzes));
@@ -367,23 +378,33 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.sessions)) {
-          const loadedSessions: SessionHistoryItem[] = data.sessions.map((s: any) => ({
-            id: s._id || s.id,
-            assessmentTitle: s.quizTitle || s.assessmentTitle || 'Interactive Assessment',
-            category: s.quizCategory || s.category || 'General',
-            roomCode: s.roomCode || 'ROOM',
-            date: s.dateStr || (s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')),
-            totalStudents: s.players?.length ?? s.totalStudents ?? 0,
-            avgScore: (s.players?.length ?? s.totalStudents ?? 0) === 0 ? 0 : (typeof s.avgScore === 'number' ? s.avgScore : (typeof s.averageScore === 'number' ? s.averageScore : 0)),
-            rankings: (s.players || s.rankings || []).map((p: any, idx: number) => ({
-              rank: p.rank || idx + 1,
-              name: p.username || p.name || 'Student',
-              score: p.score || 0,
-              correctCount: p.correctAnswers || p.correctCount || 0,
-            })).sort((a: any, b: any) => b.score - a.score).map((item: any, idx: number) => ({ ...item, rank: idx + 1 })),
-          }));
+          const sessionMap = new Map<string, SessionHistoryItem>();
 
-          // Direct clean update from MongoDB state
+          data.sessions.forEach((s: any) => {
+            const sId = s._id || s.id;
+            const codeKey = String(s.roomCode || sId).trim().toLowerCase();
+
+            if (!sessionMap.has(codeKey)) {
+              sessionMap.set(codeKey, {
+                id: sId,
+                assessmentTitle: s.quizTitle || s.assessmentTitle || 'Interactive Assessment',
+                category: s.quizCategory || s.category || 'General',
+                roomCode: s.roomCode || 'ROOM',
+                date: s.dateStr || (s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')),
+                totalStudents: s.players?.length ?? s.totalStudents ?? 0,
+                avgScore: (s.players?.length ?? s.totalStudents ?? 0) === 0 ? 0 : (typeof s.avgScore === 'number' ? s.avgScore : (typeof s.averageScore === 'number' ? s.averageScore : 0)),
+                rankings: (s.players || s.rankings || []).map((p: any, idx: number) => ({
+                  rank: p.rank || idx + 1,
+                  name: p.username || p.name || 'Student',
+                  score: p.score || 0,
+                  correctCount: p.correctAnswers || p.correctCount || 0,
+                })).sort((a: any, b: any) => b.score - a.score).map((item: any, idx: number) => ({ ...item, rank: idx + 1 })),
+              });
+            }
+          });
+
+          const loadedSessions = Array.from(sessionMap.values());
+
           set({ sessionHistory: loadedSessions });
           localStorage.setItem(`teacher_sessions_${teacher.id}`, JSON.stringify(loadedSessions));
           localStorage.setItem(`teacher_sessions_${teacher.email}`, JSON.stringify(loadedSessions));

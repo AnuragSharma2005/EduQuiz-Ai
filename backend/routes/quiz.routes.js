@@ -118,21 +118,37 @@ router.put('/:id', async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────
 router.get('/', async (req, res, next) => {
   try {
-    const { createdBy, teacherId, email } = req.query;
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const { createdBy, teacherId, email, name } = req.query;
+    const limit = Math.min(Number(req.query.limit) || 100, 200);
     const skip = Number(req.query.skip) || 0;
 
-    const filter = {};
-    const searchTarget = createdBy || teacherId || email;
+    let filter = {};
+    const queryParams = [createdBy, teacherId, email, name].filter(Boolean);
 
-    if (searchTarget) {
-      const lower = String(searchTarget).toLowerCase();
-      filter.$or = [
-        { createdBy: searchTarget },
-        { createdBy: lower },
-        { teacherId: searchTarget },
-        { teacherId: lower }
-      ];
+    if (queryParams.length > 0) {
+      const orArray = [];
+      for (const param of queryParams) {
+        const val = String(param).trim();
+        const lower = val.toLowerCase();
+        
+        orArray.push(
+          { createdBy: val },
+          { createdBy: lower },
+          { teacherId: val },
+          { teacherId: lower },
+          { teacherName: new RegExp('^' + val + '$', 'i') }
+        );
+
+        if (lower.includes('@')) {
+          const emailPrefix = lower.split('@')[0];
+          orArray.push(
+            { createdBy: emailPrefix },
+            { teacherId: emailPrefix },
+            { teacherName: new RegExp('^' + emailPrefix + '$', 'i') }
+          );
+        }
+      }
+      filter.$or = orArray;
     }
 
     const [quizzes, total] = await Promise.all([
