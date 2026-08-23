@@ -5,6 +5,7 @@ export interface AssessmentItem {
   id: string;
   title: string;
   teacherId: string;
+  teacherEmail?: string;
   teacherName: string;
   department: string;
   questionCount: number;
@@ -65,11 +66,9 @@ const getStoredTeachers = (): TeacherItem[] => {
     try {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) {
-        // Filter out legacy hardcoded mock teachers
         return parsed.filter(
           (t: TeacherItem) =>
             t.email !== 'teacher@edupulse.ai' &&
-            t.email !== 'anurag@gmail.com' &&
             t.id !== '1b6ab4ac-7821-4f2a-9e11-4091a120892c' &&
             t.id !== 'efda7886-9021-4b1c-88fa-120938491029'
         );
@@ -102,7 +101,6 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       if (res.ok) {
         const data = await res.json();
         if (data.teachers && Array.isArray(data.teachers)) {
-          // Strictly use real teachers from MongoDB database
           const realTeachers: TeacherItem[] = data.teachers;
           set({ teachers: realTeachers, loading: false });
           localStorage.setItem('admin_teachers', JSON.stringify(realTeachers));
@@ -134,54 +132,105 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
   fetchAssessmentsFromBackend: async () => {
     try {
-      const res = await fetch(`${getApiBase()}/quizzes`);
-      if (res.ok) {
-        const quizData = await res.json();
-        if (quizData && Array.isArray(quizData.quizzes)) {
-          const currentTeachers = get().teachers;
-          const mapped: AssessmentItem[] = [];
+      const currentTeachers = get().teachers;
+      const mapped: AssessmentItem[] = [];
+      const seenIds = new Set<string>();
 
-          quizData.quizzes.forEach((q: any) => {
-            const qCreatedBy = String(q.createdBy || '').toLowerCase();
-            const qTeacherId = String(q.teacherId || '');
-            const qTeacherName = String(q.teacherName || '').toLowerCase();
+      // 1. Fetch Quizzes from MongoDB backend
+      try {
+        const quizRes = await fetch(`${getApiBase()}/quizzes`);
+        if (quizRes.ok) {
+          const quizData = await quizRes.json();
+          if (quizData && Array.isArray(quizData.quizzes)) {
+            quizData.quizzes.forEach((q: any) => {
+              const qId = q._id || q.id;
+              if (seenIds.has(qId)) return;
+              seenIds.add(qId);
 
-            // Match quiz strictly against currently listed active teachers (Strict ID, Email, or Exact Name)
-            const matchingTeacher = currentTeachers.find((t) => {
-              const matchesId = (t.id && (t.id === q.teacherId || t.id === q.createdBy));
-              const matchesEmail = (t.email && qCreatedBy && t.email.toLowerCase() === qCreatedBy);
-              const matchesExactName = (
-                t.name &&
-                qTeacherName &&
-                qTeacherName !== 'null' &&
-                qTeacherName !== 'system' &&
-                qTeacherName !== 'teacher' &&
-                t.name.toLowerCase() === qTeacherName
-              );
-              return matchesId || matchesEmail || matchesExactName;
-            });
+              const qCreatedBy = String(q.createdBy || '').toLowerCase();
+              const qTeacherId = String(q.teacherId || '');
+              const qTeacherName = String(q.teacherName || '').toLowerCase();
 
-            if (matchingTeacher) {
+              const matchingTeacher = currentTeachers.find((t) => {
+                const tEmail = String(t.email || '').toLowerCase();
+                const tName = String(t.name || '').toLowerCase();
+                const tId = String(t.id || '');
+
+                return (
+                  (tId && (tId === qTeacherId || tId === qCreatedBy)) ||
+                  (tEmail && (tEmail === qCreatedBy || tEmail === qTeacherId.toLowerCase())) ||
+                  (tName && qTeacherName && tName === qTeacherName)
+                );
+              });
+
               mapped.push({
-                id: q._id || q.id,
+                id: qId,
                 title: q.title,
-                teacherId: matchingTeacher.id,
-                teacherName: matchingTeacher.name,
-                department: matchingTeacher.department || q.category || 'Computer Science',
-                questionCount: q.questions?.length || 0,
+                teacherId: matchingTeacher ? matchingTeacher.id : (q.teacherId || q.createdBy || 'unknown'),
+                teacherEmail: matchingTeacher ? matchingTeacher.email : qCreatedBy,
+                teacherName: matchingTeacher ? matchingTeacher.name : (q.teacherName || 'Teacher'),
+                department: matchingTeacher?.department || q.category || 'Computer Science',
+                questionCount: q.questions?.length || q.questionCount || 0,
                 studentsParticipated: q.enrolledStudentsCount || q.playCount || 0,
                 date: q.createdAt ? new Date(q.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
                 time: q.createdAt ? new Date(q.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM',
                 status: q.isPublished ? 'Completed' : 'Scheduled',
               });
-            }
-          });
-
-          set({ assessments: mapped });
-          return;
+            });
+          }
         }
+      } catch (e) {
+        console.warn('Quiz fetch skipped:', e);
       }
-      set({ assessments: [] });
+
+      // 2. Fetch Sessions from MongoDB backend
+      try {
+        const sessionRes = await fetch(`${getApiBase()}/sessions`);
+        if (sessionRes.ok) {
+          const sessionData = await sessionRes.json();
+          if (sessionData && Array.isArray(sessionData.sessions)) {
+            sessionData.sessions.forEach((s: any) => {
+              const sId = s._id || s.id;
+              if (seenIds.has(sId)) return;
+              seenIds.add(sId);
+
+              const hostEmail = String(s.hostEmail || '').toLowerCase();
+              const hostId = String(s.hostId || '');
+              const hostName = String(s.hostName || '').toLowerCase();
+
+              const matchingTeacher = currentTeachers.find((t) => {
+                const tEmail = String(t.email || '').toLowerCase();
+                const tName = String(t.name || '').toLowerCase();
+                const tId = String(t.id || '');
+
+                return (
+                  (tId && tId === hostId) ||
+                  (tEmail && tEmail === hostEmail) ||
+                  (tName && hostName && tName === hostName)
+                );
+              });
+
+              mapped.push({
+                id: sId,
+                title: s.quizTitle || 'Live Battle Session',
+                teacherId: matchingTeacher ? matchingTeacher.id : (hostId || hostEmail || 'unknown'),
+                teacherEmail: matchingTeacher ? matchingTeacher.email : hostEmail,
+                teacherName: matchingTeacher ? matchingTeacher.name : (s.hostName || 'Teacher'),
+                department: matchingTeacher?.department || s.quizCategory || 'Computer Science',
+                questionCount: s.totalQuestions || 5,
+                studentsParticipated: Array.isArray(s.players) ? s.players.length : (s.playerCount || 0),
+                date: s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-GB') : (s.dateStr || new Date().toLocaleDateString('en-GB')),
+                time: s.createdAt ? new Date(s.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM',
+                status: s.status === 'live' ? 'Live' : 'Completed',
+              });
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Session fetch skipped:', e);
+      }
+
+      set({ assessments: mapped });
     } catch (e) {
       console.warn('Backend server assessment fetch skipped:', e);
       set({ assessments: [] });
@@ -195,7 +244,6 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     let createdTeacher: TeacherItem;
 
     try {
-      // POST to backend Express API -> saves directly into MongoDB users collection!
       const res = await fetch(`${getApiBase()}/admin/create-teacher`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -271,6 +319,18 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   },
 
   getTeacherAssessments: (teacherId) => {
-    return get().assessments.filter((a) => a.teacherId === teacherId);
+    const teacher = get().teachers.find(
+      (t) => t.id === teacherId || (t.email && t.email.toLowerCase() === String(teacherId).toLowerCase())
+    );
+
+    return get().assessments.filter((a) => {
+      if (a.teacherId === teacherId) return true;
+      if (teacher) {
+        if (a.teacherId === teacher.id || a.teacherId === teacher.email) return true;
+        if (a.teacherEmail && teacher.email && a.teacherEmail.toLowerCase() === teacher.email.toLowerCase()) return true;
+        if (a.teacherName && teacher.name && a.teacherName.toLowerCase() === teacher.name.toLowerCase()) return true;
+      }
+      return false;
+    });
   },
 }));
