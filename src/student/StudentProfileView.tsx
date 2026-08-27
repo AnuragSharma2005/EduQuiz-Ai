@@ -215,58 +215,79 @@ export const StudentProfileView: React.FC = () => {
           </button>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-sky-500/20 text-[10px] font-black uppercase tracking-widest text-sky-300/80">
-                <th className="py-3 px-4">ASSESSMENT TITLE</th>
-                <th className="py-3 px-4">ROOM CODE</th>
-                <th className="py-3 px-4">DATE</th>
-                <th className="py-3 px-4">SCORE</th>
-                <th className="py-3 px-4">ACCURACY</th>
-                <th className="py-3 px-4 text-right">FINAL RANK</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-sky-500/10 font-semibold">
-              {assessmentHistory.map((item) => {
-                const isFirst = item.rank === 1;
-                const isSecond = item.rank === 2;
-                const isThird = item.rank === 3;
+        {/* Table or Zero State */}
+        {assessmentHistory.length === 0 ? (
+          <div className="py-12 px-4 text-center space-y-4 bg-sky-950/20 border border-dashed border-sky-500/20 rounded-2xl">
+            <div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-400/30 text-sky-300 flex items-center justify-center mx-auto">
+              <Trophy size={24} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-extrabold text-white">No Battle History Yet</h3>
+              <p className="text-xs text-sky-200/60 max-w-md mx-auto">
+                You haven't played any live classroom quiz battles yet. Join a battle room using a room code to start earning points & ranks!
+              </p>
+            </div>
+            <button
+              onClick={() => setSelectedTab('join')}
+              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs transition-all shadow-lg shadow-indigo-600/30 cursor-pointer inline-flex items-center gap-2"
+            >
+              <Zap size={14} />
+              <span>Join Your First Battle</span>
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-sky-500/20 text-[10px] font-black uppercase tracking-widest text-sky-300/80">
+                  <th className="py-3 px-4">ASSESSMENT TITLE</th>
+                  <th className="py-3 px-4">ROOM CODE</th>
+                  <th className="py-3 px-4">DATE</th>
+                  <th className="py-3 px-4">SCORE</th>
+                  <th className="py-3 px-4">ACCURACY</th>
+                  <th className="py-3 px-4 text-right">FINAL RANK</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-sky-500/10 font-semibold">
+                {assessmentHistory.map((item) => {
+                  const isFirst = item.rank === 1;
+                  const isSecond = item.rank === 2;
+                  const isThird = item.rank === 3;
 
-                return (
-                  <tr key={item.id} className="hover:bg-sky-950/30 transition-colors">
-                    <td className="py-4 px-4 font-black text-white">{item.assessmentTitle}</td>
-                    <td className="py-4 px-4 font-mono font-bold text-sky-300">{item.roomCode}</td>
-                    <td className="py-4 px-4 text-slate-400">{item.date}</td>
-                    <td className="py-4 px-4 font-extrabold text-amber-400">{item.score} pts</td>
-                    <td className="py-4 px-4 text-emerald-400">
-                      {item.correctAnswers} / {item.totalQuestions} Correct
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <span
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
-                          isFirst
-                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                            : isSecond
-                              ? 'bg-slate-300/20 text-slate-200 border border-slate-400/40'
-                              : isThird
-                                ? 'bg-amber-900/40 text-amber-400 border border-amber-800/40'
-                                : 'bg-slate-900 text-sky-400/80 border border-sky-500/20'
-                        }`}
-                      >
-                        {isFirst && '🥇 '}
-                        {isSecond && '🥈 '}
-                        {isThird && '🥉 '}
-                        Rank #{item.rank} / {item.totalParticipants}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  return (
+                    <tr key={item.id} className="hover:bg-sky-950/30 transition-colors">
+                      <td className="py-4 px-4 font-black text-white">{item.assessmentTitle}</td>
+                      <td className="py-4 px-4 font-mono font-bold text-sky-300">{item.roomCode}</td>
+                      <td className="py-4 px-4 text-slate-400">{item.date}</td>
+                      <td className="py-4 px-4 font-extrabold text-amber-400">{item.score} pts</td>
+                      <td className="py-4 px-4 text-emerald-400">
+                        {item.correctAnswers} / {item.totalQuestions} Correct
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <span
+                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                            isFirst
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : isSecond
+                                ? 'bg-slate-300/20 text-slate-200 border border-slate-400/40'
+                                : isThird
+                                  ? 'bg-amber-900/40 text-amber-400 border border-amber-800/40'
+                                  : 'bg-slate-900 text-sky-400/80 border border-sky-500/20'
+                          }`}
+                        >
+                          {isFirst && '🥇 '}
+                          {isSecond && '🥈 '}
+                          {isThird && '🥉 '}
+                          Rank #{item.rank} / {item.totalParticipants}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

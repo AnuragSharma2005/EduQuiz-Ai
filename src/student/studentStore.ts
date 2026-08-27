@@ -101,6 +101,18 @@ const DEFAULT_HISTORY: StudentAssessmentHistoryItem[] = [
   },
 ];
 
+const getInitialStudentHistory = (studentId?: string): StudentAssessmentHistoryItem[] => {
+  try {
+    if (studentId && typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`student_history_${studentId}`);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    }
+  } catch (e) {}
+  return []; // Empty by default for new accounts!
+};
+
 const getInitialStudentUser = (): StudentProfile | null => {
   try {
     const savedToken = localStorage.getItem('student_token');
@@ -143,7 +155,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
   },
   isStudentAuth: getInitialStudentAuth(),
   selectedTab: 'join',
-  assessmentHistory: DEFAULT_HISTORY,
+  assessmentHistory: initialUser?.id ? getInitialStudentHistory(initialUser.id) : [],
 
   usernameInput: initialUser?.name || '',
   selectedAvatar: initialUser?.avatar || DEFAULT_AVATARS[0],
@@ -179,6 +191,8 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         createdAt: data.user.createdAt || new Date().toISOString(),
       };
 
+      const userHistory = getInitialStudentHistory(studentUser.id);
+
       localStorage.setItem('student_token', data.token);
       localStorage.setItem('student_user', JSON.stringify(studentUser));
 
@@ -186,6 +200,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         isStudentAuth: true,
         currentStudent: studentUser,
         usernameInput: studentUser.name,
+        assessmentHistory: userHistory,
       });
 
       return { success: true };
@@ -233,11 +248,13 @@ export const useStudentStore = create<StudentState>((set, get) => ({
 
       localStorage.setItem('student_token', data.token);
       localStorage.setItem('student_user', JSON.stringify(studentUser));
+      localStorage.setItem(`student_history_${studentUser.id}`, JSON.stringify([]));
 
       set({
         isStudentAuth: true,
         currentStudent: studentUser,
         usernameInput: studentUser.name,
+        assessmentHistory: [], // Completely empty for new registered account!
       });
 
       return { success: true };
@@ -268,6 +285,7 @@ export const useStudentStore = create<StudentState>((set, get) => ({
         createdAt: new Date().toISOString(),
       },
       usernameInput: '',
+      assessmentHistory: [],
     });
   },
 
@@ -343,6 +361,17 @@ export const useStudentStore = create<StudentState>((set, get) => ({
   },
 
   addHistoryItem: (item) => {
-    set({ assessmentHistory: [item, ...get().assessmentHistory] });
+    const student = get().currentStudent;
+    const currentHistory = get().assessmentHistory;
+    if (currentHistory.some((h) => h.id === item.id || (h.roomCode === item.roomCode && h.date === item.date))) {
+      return;
+    }
+    const updatedHistory = [item, ...currentHistory];
+    if (student && student.id) {
+      try {
+        localStorage.setItem(`student_history_${student.id}`, JSON.stringify(updatedHistory));
+      } catch (e) {}
+    }
+    set({ assessmentHistory: updatedHistory });
   },
 }));

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
@@ -6,12 +6,13 @@ import { Trophy, RotateCcw, Home, BarChart3 } from 'lucide-react';
 import { Button, Card } from '../components/UI';
 import { useGameStore } from '../store/useGameStore';
 
-import { useStudentStore } from '../student/studentStore';
+import { useStudentStore, StudentAssessmentHistoryItem } from '../student/studentStore';
 
 export const ResultsPage = () => {
   const navigate = useNavigate();
-  const { players, me, resetGame } = useGameStore();
-  const setSelectedTab = useStudentStore((s) => s.setSelectedTab);
+  const { players, me, resetGame, roomCode, currentQuiz } = useGameStore();
+  const { setSelectedTab, isStudentAuth, addHistoryItem } = useStudentStore();
+  const hasRecordedRef = useRef(false);
 
   const contestants = players.filter((player) => !player.isHost);
   const finalPlayers = contestants.length > 0 ? contestants : players;
@@ -33,7 +34,24 @@ export const ResultsPage = () => {
       origin: { y: 0.6 },
       colors: ['#6366f1', '#ec4899', '#10b981', '#f59e0b']
     });
-  }, []);
+
+    if (!hasRecordedRef.current && isStudentAuth) {
+      hasRecordedRef.current = true;
+      const totalQ = currentQuiz?.questions?.length || 4;
+      const historyItem: StudentAssessmentHistoryItem = {
+        id: `hist_${roomCode || 'QUIZ'}_${Date.now()}`,
+        roomCode: roomCode || 'LIVE01',
+        assessmentTitle: currentQuiz?.title || 'Classroom Live Quiz Battle',
+        date: new Date().toLocaleDateString('en-GB'),
+        score: myPlayerObj?.score || me?.score || 0,
+        totalQuestions: totalQ,
+        correctAnswers: (myPlayerObj as any)?.correctAnswers || Math.min(totalQ, Math.max(1, Math.floor((myPlayerObj?.score || 0) / 1000))),
+        rank: myRank,
+        totalParticipants: sortedPlayers.length || 1,
+      };
+      addHistoryItem(historyItem);
+    }
+  }, [isStudentAuth, me, roomCode, currentQuiz, myRank, myPlayerObj, sortedPlayers.length, addHistoryItem]);
 
   const handlePlayAgain = () => {
     resetGame();
