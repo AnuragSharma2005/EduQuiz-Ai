@@ -85,7 +85,12 @@ export const TeacherLiveSessionControlView: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setSelectedTab('projector')}
+            onClick={() => {
+              setSelectedTab('projector');
+              if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+              }
+            }}
             className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-all flex items-center gap-2 cursor-pointer border border-white/10"
           >
             <Monitor size={14} className="text-sky-300" />

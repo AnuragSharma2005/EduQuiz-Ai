@@ -153,8 +153,8 @@ const GameModeCard = ({ icon: Icon, title, desc, color }: any) => (
 export const LandingPage = () => {
   const navigate = useNavigate();
   const { setMe, setRoomCode } = useGameStore();
-  const { isStudentAuth } = useStudentStore();
-  const { isTeacherAuth } = useTeacherStore();
+  const { isStudentAuth, currentStudent, logoutStudent } = useStudentStore();
+  const { isTeacherAuth, currentTeacher, logoutTeacher } = useTeacherStore();
   const { user, isAuthenticated, logout } = useAuth();
   const [showHostOptions, setShowHostOptions] = useState(false);
   const [roomCode, setRoomCodeInput] = useState('');
@@ -231,6 +231,25 @@ export const LandingPage = () => {
     { username: "Max_Power", score: 3900, rank: 3, avatar: AVATARS[15], x: "50%", y: "10%" },
   ], []);
 
+  const isAnyLoggedIn = isAuthenticated || isStudentAuth || isTeacherAuth;
+
+  const handleGlobalLogout = async () => {
+    try {
+      await logout();
+    } catch (e) {}
+    logoutTeacher();
+    logoutStudent();
+    localStorage.removeItem('isTeacherAuth');
+    localStorage.removeItem('teacher_data');
+    sessionStorage.removeItem('isTeacherAuth');
+    sessionStorage.removeItem('teacher_data');
+    localStorage.removeItem('student_token');
+    localStorage.removeItem('student_user');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen bg-[#020205] text-white overflow-x-hidden relative selection:bg-indigo-500/30">
       <ParticleBackground />
@@ -254,35 +273,52 @@ export const LandingPage = () => {
           </motion.h1>
 
           {/* Auth & Portal Buttons */}
-          {isAuthenticated ? (
+          {isAnyLoggedIn ? (
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Admin Panel Quick Link */}
+              {/* Profile Button - Takes user directly to their active profile/dashboard */}
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => navigate('/admin')}
-                className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-[11px] sm:text-xs font-bold hover:bg-indigo-500/30 transition-all flex items-center gap-1 shrink-0"
+                onClick={() => {
+                  if (isTeacherAuth) {
+                    navigate('/teacher');
+                  } else if (isStudentAuth) {
+                    navigate('/student');
+                  } else {
+                    navigate('/student');
+                  }
+                }}
+                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-indigo-600/30 via-purple-600/30 to-sky-600/30 border border-indigo-500/40 hover:border-indigo-400 text-indigo-200 hover:text-white text-xs sm:text-sm font-extrabold transition-all flex items-center gap-2 shadow-lg shadow-indigo-950/50 cursor-pointer shrink-0"
               >
-                ⚙️ <span className="hidden sm:inline">Admin Panel</span><span className="sm:hidden">Admin</span>
+                <User size={16} className="text-sky-400" />
+                <span className="truncate max-w-[120px] sm:max-w-[170px]">
+                  {isTeacherAuth
+                    ? `👨‍🏫 ${currentTeacher?.name || 'Teacher Profile'}`
+                    : isStudentAuth
+                    ? `👨‍🎓 ${currentStudent?.name || 'Student Profile'}`
+                    : `👤 ${user?.username || 'My Profile'}`}
+                </span>
               </motion.button>
 
-              {/* User Profile Button */}
-              <motion.span
-                whileHover={{ scale: 1.05 }}
-                className="text-xs sm:text-sm font-bold text-indigo-300 truncate max-w-[100px] sm:max-w-none"
-              >
-                👤 {user?.username}
-              </motion.span>
+              {/* Admin Panel Quick Link */}
+              {isAuthenticated && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate('/admin')}
+                  className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-[11px] sm:text-xs font-bold hover:bg-indigo-500/30 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                >
+                  ⚙️ <span className="hidden sm:inline">Admin</span>
+                </motion.button>
+              )}
 
               {/* Logout Button */}
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={async () => {
-                  await logout();
-                  navigate('/');
-                }}
-                className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-rose-500/10 border border-rose-500/30 hover:border-rose-500/60 hover:bg-rose-500/20 transition-all shrink-0"
+                onClick={handleGlobalLogout}
+                className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-rose-500/10 border border-rose-500/30 hover:border-rose-500/60 hover:bg-rose-500/20 transition-all shrink-0 cursor-pointer"
+                title="Logout Account"
               >
                 <LogOut size={14} className="text-rose-400" />
                 <span className="text-xs sm:text-sm font-bold text-rose-400">Logout</span>

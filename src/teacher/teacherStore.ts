@@ -111,6 +111,7 @@ interface TeacherState {
   endLiveSession: () => void;
   clearActiveSession: () => void;
   simulateJoinStudent: () => void;
+  simulateScores: () => void;
   addStudentToLobby: (student: ConnectedStudent) => void;
 
   // Student Management CRUD
@@ -1075,6 +1076,42 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
         email: nextStudent.email,
         avatar: nextStudent.avatar,
         isHost: false,
+      },
+    });
+  },
+
+  simulateScores: () => {
+    const session = get().activeSession;
+    if (!session) return;
+
+    let currentStudents = [...session.students];
+    if (currentStudents.length < 3) {
+      currentStudents = [
+        { id: 'std_demo_1', name: 'Anurag Sharma', email: 'anurag@student.edu', avatar: '👨‍🎓', status: 'SUBMITTED', score: 850 },
+        { id: 'std_demo_2', name: 'Alice Johnson', email: 'alice@student.edu', avatar: '👩‍🎓', status: 'SUBMITTED', score: 780 },
+        { id: 'std_demo_3', name: 'Bob Smith', email: 'bob@student.edu', avatar: '🎓', status: 'SUBMITTED', score: 720 },
+        { id: 'std_demo_4', name: 'Charlie Brown', email: 'charlie@student.edu', avatar: '👨‍💻', status: 'SUBMITTED', score: 650 },
+        { id: 'std_demo_5', name: 'David Miller', email: 'david@student.edu', avatar: '🎓', status: 'SUBMITTED', score: 590 },
+      ];
+    }
+
+    const updatedStudents = currentStudents.map((student) => {
+      if (Math.random() > 0.3) {
+        const bonus = Math.floor(Math.random() * 260) + 120;
+        return {
+          ...student,
+          score: student.score + bonus,
+          status: 'SUBMITTED' as const,
+          lastAnswerCorrect: true,
+        };
+      }
+      return student;
+    });
+
+    set({
+      activeSession: {
+        ...session,
+        students: updatedStudents,
       },
     });
   },

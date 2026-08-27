@@ -47,6 +47,13 @@ export const TeacherLayout: React.FC = () => {
 
   const handleLogout = () => {
     logoutTeacher();
+    sessionStorage.removeItem('isTeacherAuth');
+    sessionStorage.removeItem('teacher_data');
+    localStorage.removeItem('isTeacherAuth');
+    localStorage.removeItem('teacher_data');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    navigate('/');
   };
 
   interface NavItem {
@@ -97,6 +104,10 @@ export const TeacherLayout: React.FC = () => {
         return <TeacherDashboardView />;
     }
   };
+
+  if (selectedTab === 'projector') {
+    return <ProjectorScreenView />;
+  }
 
   return (
     <div className="min-h-screen bg-[#030712] text-white font-sans flex relative overflow-x-hidden selection:bg-sky-500/30">
@@ -149,7 +160,14 @@ export const TeacherLayout: React.FC = () => {
             return (
               <button
                 key={item.id}
-                onClick={() => setSelectedTab(item.id as any)}
+                onClick={() => {
+                  setSelectedTab(item.id as any);
+                  if (item.id === 'projector') {
+                    if (!document.fullscreenElement) {
+                      document.documentElement.requestFullscreen().catch(() => {});
+                    }
+                  }
+                }}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
                   isActive
                     ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/30 border border-sky-400/50'

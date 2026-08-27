@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import {
   User,
   Mail,
@@ -13,12 +14,14 @@ import {
   BookOpen,
   ArrowLeft,
   CheckCircle2,
-  BarChart2
+  BarChart2,
+  LogOut,
 } from 'lucide-react';
 import { useStudentStore } from './studentStore';
 
 export const StudentProfileView: React.FC = () => {
-  const { currentStudent, updateStudentProfile, assessmentHistory, setSelectedTab } = useStudentStore();
+  const navigate = useNavigate();
+  const { currentStudent, updateStudentProfile, assessmentHistory, setSelectedTab, logoutStudent } = useStudentStore();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(currentStudent.name);
@@ -121,17 +124,33 @@ export const StudentProfileView: React.FC = () => {
 
           {/* Action Buttons */}
           {!isEditing && (
-            <button
-              onClick={() => {
-                setEditName(currentStudent.name);
-                setEditEmail(currentStudent.email);
-                setIsEditing(true);
-              }}
-              className="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-sky-500/30 text-white font-bold text-xs transition-all flex items-center gap-2 cursor-pointer shrink-0"
-            >
-              <Edit2 size={14} className="text-sky-400" />
-              <span>Edit Profile & Email</span>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => {
+                  setEditName(currentStudent.name);
+                  setEditEmail(currentStudent.email);
+                  setIsEditing(true);
+                }}
+                className="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-sky-500/30 text-white font-bold text-xs transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <Edit2 size={14} className="text-sky-400" />
+                <span>Edit Profile</span>
+              </button>
+              <button
+                onClick={() => {
+                  logoutStudent();
+                  localStorage.removeItem('student_token');
+                  localStorage.removeItem('student_user');
+                  localStorage.removeItem('authToken');
+                  localStorage.removeItem('user');
+                  navigate('/');
+                }}
+                className="px-4 py-2.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 font-bold text-xs transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <LogOut size={14} className="text-rose-400" />
+                <span>Logout</span>
+              </button>
+            </div>
           )}
         </div>
       </div>

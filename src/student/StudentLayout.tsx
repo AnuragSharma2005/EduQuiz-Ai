@@ -131,7 +131,14 @@ export const StudentLayout: React.FC = () => {
 
           {isStudentAuth && (
             <button
-              onClick={logoutStudent}
+              onClick={() => {
+                logoutStudent();
+                localStorage.removeItem('student_token');
+                localStorage.removeItem('student_user');
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('user');
+                navigate('/');
+              }}
               title="Logout Student"
               className="p-2.5 rounded-xl bg-slate-900/80 hover:bg-rose-950/60 border border-sky-500/20 hover:border-rose-700 text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
             >
