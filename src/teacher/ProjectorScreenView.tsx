@@ -74,7 +74,7 @@ export const ProjectorScreenView: React.FC = () => {
   } = useTeacherStore();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showSideLeaderboard, setShowSideLeaderboard] = useState(true);
+  const [showSideLeaderboard, setShowSideLeaderboard] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768);
   const [isAutoLive, setIsAutoLive] = useState(true);
 
   // Live Activity Feed matching the user screenshot!
@@ -270,48 +270,48 @@ export const ProjectorScreenView: React.FC = () => {
       <div className="fixed inset-0 bg-blue-grid opacity-10 pointer-events-none z-0" />
 
       {/* Top Header Bar with EduQuiz Brand */}
-      <div className="flex items-center justify-between gap-4 relative z-20 pb-3 border-b border-slate-800/80">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-2 sm:gap-4 relative z-30 pb-2.5 sm:pb-3 border-b border-slate-800/80">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={handleExitProjector}
-            className="p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors cursor-pointer mr-1"
+            className="p-2 sm:p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
             title="Exit Projector Screen"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={16} />
           </button>
 
           {/* EduQuiz Glowing Logo (Exact match with user image!) */}
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-black italic tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-500 drop-shadow-[0_0_20px_rgba(236,72,153,0.5)]">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <h1 className="text-xl sm:text-3xl font-black italic tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-500 drop-shadow-[0_0_20px_rgba(236,72,153,0.5)]">
               EduQuiz
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full bg-pink-500/20 text-pink-300 font-extrabold text-[9px] uppercase tracking-widest border border-pink-500/30">
+            <span className="px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 font-extrabold text-[8px] sm:text-[9px] uppercase tracking-widest border border-pink-500/30">
               PROJECTOR
             </span>
           </div>
 
-          <div className="h-6 w-[1px] bg-slate-800 mx-1 hidden sm:block" />
+          <div className="h-5 w-[1px] bg-slate-800 mx-0.5 hidden sm:block" />
 
           {/* Toggle Side Leaderboard */}
           <button
             onClick={() => setShowSideLeaderboard(!showSideLeaderboard)}
-            className={`p-2 py-1.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-2 text-xs font-bold ${
+            className={`p-1.5 sm:p-2 py-1 sm:py-1.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-1.5 text-[11px] sm:text-xs font-bold ${
               showSideLeaderboard
                 ? 'bg-pink-600/20 border-pink-500/40 text-pink-300 shadow-md shadow-pink-950/40'
                 : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
             }`}
           >
-            {showSideLeaderboard ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
-            <span className="hidden sm:inline">Rankings Panel</span>
+            {showSideLeaderboard ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
+            <span className="hidden xs:inline">Rankings</span>
           </button>
         </div>
 
         {/* Right Info Badges & Fullscreen Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           {/* Automatic Live Motion Toggle */}
           <button
             onClick={() => setIsAutoLive(!isAutoLive)}
-            className={`px-3 py-1.5 rounded-2xl border text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-2xl border text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
               isAutoLive
                 ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-300 shadow-lg shadow-emerald-950/50'
                 : 'bg-slate-900 border-slate-700 text-slate-400'
@@ -319,20 +319,21 @@ export const ProjectorScreenView: React.FC = () => {
             title="Toggle Automatic Score Updates & Position Movement"
           >
             <span className={`w-2 h-2 rounded-full ${isAutoLive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
-            <span>{isAutoLive ? '⚡ AUTO MOVE: ON' : 'PAUSED'}</span>
+            <span className="hidden sm:inline">{isAutoLive ? '⚡ AUTO MOVE: ON' : 'PAUSED'}</span>
+            <span className="sm:hidden">{isAutoLive ? '⚡ AUTO' : 'OFF'}</span>
           </button>
 
           {/* Join Code Box */}
-          <div className="bg-[#080c1d]/90 border border-slate-800 rounded-2xl p-1.5 px-3 flex items-center gap-3 shadow-xl">
+          <div className="bg-[#080c1d]/90 border border-slate-800 rounded-2xl p-1 px-2.5 sm:p-1.5 sm:px-3 flex items-center gap-2 sm:gap-3 shadow-xl">
             <div className="text-left">
-              <div className="text-[8px] font-extrabold text-slate-400 tracking-wider uppercase">ROOM CODE</div>
+              <div className="text-[7px] sm:text-[8px] font-extrabold text-slate-400 tracking-wider uppercase">ROOM CODE</div>
               <div className="text-xs sm:text-sm font-black font-mono text-pink-400">{roomCode}</div>
             </div>
 
-            <div className="h-5 w-[1px] bg-slate-800 mx-0.5" />
+            <div className="h-4 w-[1px] bg-slate-800 mx-0.5" />
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-950/60 border border-indigo-800/40 text-indigo-300 text-xs font-black">
-              <Users size={13} />
+            <div className="flex items-center gap-1 px-2 py-0.5 sm:py-1 rounded-xl bg-indigo-950/60 border border-indigo-800/40 text-indigo-300 text-[11px] sm:text-xs font-black">
+              <Users size={12} />
               <span>{activeStudentsList.length}</span>
             </div>
           </div>
@@ -340,25 +341,25 @@ export const ProjectorScreenView: React.FC = () => {
           {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreenMode}
-            className="p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+            className="p-2 sm:p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
             title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
           >
-            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
         </div>
       </div>
 
       {/* Main Viewport Stage: Left Live Leaderboard Cards + Right Stage */}
-      <div className="flex-1 flex gap-4 sm:gap-6 overflow-hidden my-3 relative z-10">
-        {/* LEFT SIDEBAR: Live Dynamic Cards Stack ("boost score ko aise show kro aur automatic move kre") */}
+      <div className="flex-1 flex gap-3 sm:gap-6 overflow-hidden my-2 sm:my-3 relative z-10">
+        {/* LEFT SIDEBAR: Overlay on mobile, relative on desktop */}
         <AnimatePresence>
           {showSideLeaderboard && (
             <motion.aside
-              initial={{ opacity: 0, x: -80, width: 0 }}
-              animate={{ opacity: 1, x: 0, width: 'auto' }}
-              exit={{ opacity: 0, x: -80, width: 0 }}
+              initial={{ opacity: 0, x: -100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -100 }}
               transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-              className="w-72 sm:w-80 md:w-88 shrink-0 bg-[#050818]/95 border border-slate-800 rounded-3xl p-4 shadow-2xl backdrop-blur-2xl flex flex-col justify-between overflow-hidden"
+              className="absolute md:relative inset-y-0 left-0 z-40 w-[85vw] sm:w-80 md:w-88 shrink-0 bg-[#050818]/98 border border-slate-800 rounded-3xl p-3 sm:p-4 shadow-2xl backdrop-blur-2xl flex flex-col justify-between overflow-hidden"
             >
               {/* Header of Left Stack */}
               <div className="pb-3 border-b border-slate-800/80 flex items-center justify-between">
@@ -697,7 +698,7 @@ export const ProjectorScreenView: React.FC = () => {
       </div>
 
       {/* Floating On-Screen Presenter Toolbar Controls */}
-      <div className="relative z-50 bg-[#090d24]/95 border border-slate-800 rounded-3xl p-3 px-6 shadow-2xl backdrop-blur-xl flex items-center gap-3 sm:gap-4 max-w-3xl mx-auto w-full justify-between sm:justify-center">
+      <div className="relative z-30 bg-[#090d24]/95 border border-slate-800 rounded-2xl sm:rounded-3xl p-2 sm:p-3 px-3 sm:px-6 shadow-2xl backdrop-blur-xl flex items-center gap-1.5 sm:gap-4 max-w-3xl mx-auto w-full justify-between sm:justify-center pr-14 sm:pr-6">
         {isLobby ? (
           <button
             onClick={startGame}

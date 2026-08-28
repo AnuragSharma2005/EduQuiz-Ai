@@ -196,7 +196,7 @@ export const StudentProfileView: React.FC = () => {
 
       {/* Assessment History Table */}
       <div className="bg-[#070e28] border border-sky-500/30 rounded-3xl p-6 shadow-2xl shadow-sky-950/30 space-y-6 text-white">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
               <Award size={20} className="text-sky-400" />
@@ -209,7 +209,7 @@ export const StudentProfileView: React.FC = () => {
 
           <button
             onClick={() => setSelectedTab('join')}
-            className="px-4 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-extrabold text-xs transition-all cursor-pointer shadow-lg shadow-sky-500/30"
+            className="px-4 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-extrabold text-xs transition-all cursor-pointer shadow-lg shadow-sky-500/30 whitespace-nowrap shrink-0"
           >
             + Join New Battle
           </button>
@@ -236,16 +236,16 @@ export const StudentProfileView: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="overflow-x-auto rounded-2xl border border-sky-500/20">
+            <table className="w-full text-left text-xs border-collapse min-w-[620px]">
               <thead>
-                <tr className="border-b border-sky-500/20 text-[10px] font-black uppercase tracking-widest text-sky-300/80">
-                  <th className="py-3 px-4">ASSESSMENT TITLE</th>
-                  <th className="py-3 px-4">ROOM CODE</th>
-                  <th className="py-3 px-4">DATE</th>
-                  <th className="py-3 px-4">SCORE</th>
-                  <th className="py-3 px-4">ACCURACY</th>
-                  <th className="py-3 px-4 text-right">FINAL RANK</th>
+                <tr className="border-b border-sky-500/20 text-[10px] font-black uppercase tracking-widest text-sky-300/80 bg-sky-950/40">
+                  <th className="py-3 px-4 whitespace-nowrap">ASSESSMENT TITLE</th>
+                  <th className="py-3 px-4 whitespace-nowrap">ROOM CODE</th>
+                  <th className="py-3 px-4 whitespace-nowrap">DATE</th>
+                  <th className="py-3 px-4 whitespace-nowrap">SCORE</th>
+                  <th className="py-3 px-4 whitespace-nowrap">ACCURACY</th>
+                  <th className="py-3 px-4 text-right whitespace-nowrap">FINAL RANK</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-sky-500/10 font-semibold">

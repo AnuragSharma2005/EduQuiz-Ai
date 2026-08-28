@@ -4,12 +4,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Trophy, Zap, CheckCircle2, XCircle, Shield, Users, Activity } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { useGameStore } from '../store/useGameStore';
+import { useStudentStore } from '../student/studentStore';
 import { AnswerButton } from '../components/AnswerButton';
 import { QuizTimer } from '../components/QuizTimer';
 import { LeaderboardCard } from '../components/LeaderboardCard';
 import { Button, Card } from '../components/UI';
 import { cn } from '../utils/constants';
 import socket from '../services/socket';
+import { LiveChatWidget } from '../components/LiveChatWidget';
 
 const DEFAULT_FALLBACK_QUIZ = {
   id: 'battle_quiz_default',
@@ -52,8 +54,10 @@ export const GamePage = () => {
   const navigate = useNavigate();
   const { code: paramCode } = useParams();
   const { currentQuiz, currentQuestionIndex, status, players, me, questionStartTime, roomCode: storeRoomCode } = useGameStore();
+  const { currentStudent } = useStudentStore();
 
   const code = paramCode || storeRoomCode || '';
+  const chatUserName = me?.username || currentStudent?.name || 'Student';
 
   const isHost = Boolean(me?.isHost);
   const contestants = players.filter((player) => !player.isHost);
@@ -521,6 +525,12 @@ export const GamePage = () => {
           className="h-full bg-indigo-500"
         />
       </div>
+
+      <LiveChatWidget
+        roomCode={code}
+        currentUser={chatUserName}
+        role={isHost ? 'teacher' : 'student'}
+      />
     </div>
   );
 };

@@ -8,6 +8,7 @@ import { useGameStore } from '../store/useGameStore';
 import { cn } from '../utils/constants';
 
 import { useStudentStore, StudentAssessmentHistoryItem } from '../student/studentStore';
+import { LiveChatWidget } from '../components/LiveChatWidget';
 
 const RenderAvatar = ({ avatar, className, fallback = '🐱' }: { avatar?: string; className?: string; fallback?: string }) => {
   const isUrl = avatar && (avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('data:') || avatar.startsWith('/'));
@@ -265,6 +266,12 @@ export const ResultsPage = () => {
         </div>
 
       </div>
+
+      <LiveChatWidget
+        roomCode={roomCode || ''}
+        currentUser={myPlayerObj?.username || me?.username || 'Student'}
+        role="student"
+      />
     </div>
   );
 };
