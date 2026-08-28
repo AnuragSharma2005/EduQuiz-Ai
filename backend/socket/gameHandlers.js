@@ -11,6 +11,43 @@ export function isRoomActive(roomCode) {
   return rooms.has(clean);
 }
 
+const DEFAULT_FALLBACK_QUIZ = {
+  id: 'battle_quiz_default',
+  title: 'Adaptive Battle Arena',
+  category: 'General Knowledge',
+  difficulty: 'Medium',
+  questions: [
+    {
+      id: 'q1',
+      text: 'Which planet in our solar system is known as the Red Planet?',
+      options: ['Venus', 'Mars', 'Jupiter', 'Saturn'],
+      correctAnswer: 1,
+      timeLimit: 15,
+    },
+    {
+      id: 'q2',
+      text: "What is the primary gas found in Earth's atmosphere?",
+      options: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Hydrogen'],
+      correctAnswer: 1,
+      timeLimit: 15,
+    },
+    {
+      id: 'q3',
+      text: 'What is the chemical symbol for Gold?',
+      options: ['Ag', 'Au', 'Fe', 'Cu'],
+      correctAnswer: 1,
+      timeLimit: 15,
+    },
+    {
+      id: 'q4',
+      text: 'Which data structure follows the Last-In, First-Out (LIFO) principle?',
+      options: ['Queue', 'Stack', 'Array', 'Linked List'],
+      correctAnswer: 1,
+      timeLimit: 15,
+    },
+  ],
+};
+
 function createRoom(roomCode) {
   return {
     code: roomCode,
@@ -190,6 +227,10 @@ export function registerGameHandlers(io, socket) {
 
     if (quiz && quiz.questions && quiz.questions.length > 0) {
       room.currentQuiz = quiz;
+    }
+
+    if (!room.currentQuiz || !room.currentQuiz.questions || room.currentQuiz.questions.length === 0) {
+      room.currentQuiz = DEFAULT_FALLBACK_QUIZ;
     }
 
     room.status = 'starting';

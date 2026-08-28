@@ -1201,9 +1201,14 @@ if (typeof window !== 'undefined') {
       }));
 
     // Maintain current teacher session status ('lobby' or 'live')
+    const currentQIdx = roomData.currentQuestionIndex !== undefined ? roomData.currentQuestionIndex : state.activeSession.currentQuestionIndex;
+    const isLive = roomData.status === 'question' || roomData.status === 'starting';
+    
     useTeacherStore.setState({
       activeSession: {
         ...state.activeSession,
+        status: isLive ? 'live' : roomData.status === 'finished' ? 'finished' : state.activeSession.status,
+        currentQuestionIndex: currentQIdx,
         assessment: roomData.currentQuiz || state.activeSession.assessment,
         students: connectedStudents,
       },

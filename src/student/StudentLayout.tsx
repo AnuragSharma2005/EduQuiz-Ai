@@ -22,18 +22,17 @@ export const StudentLayout: React.FC = () => {
     setSelectedTab,
   } = useStudentStore();
   const { status } = useGameStore();
-  const prevStatusRef = React.useRef(status);
-
   React.useEffect(() => {
-    if (prevStatusRef.current !== status) {
-      if (status === 'starting' || status === 'question') {
+    if (status === 'starting' || status === 'question' || status === 'leaderboard') {
+      if (selectedTab !== 'quiz') {
         setSelectedTab('quiz');
-      } else if (status === 'finished') {
+      }
+    } else if (status === 'finished') {
+      if (selectedTab !== 'results') {
         setSelectedTab('results');
       }
-      prevStatusRef.current = status;
     }
-  }, [status, setSelectedTab]);
+  }, [status, selectedTab, setSelectedTab]);
 
   const renderContent = () => {
     switch (selectedTab) {

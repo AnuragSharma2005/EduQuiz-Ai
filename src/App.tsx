@@ -24,15 +24,27 @@ const AnimatedRoutes = () => {
   const { syncWithRoom } = useGameStore();
 
   useEffect(() => {
-    socket.on('room_update', (roomData) => {
+    const handleRoomUpdate = (roomData: any) => {
+      if (!roomData) return;
       syncWithRoom(roomData);
-      if (roomData?.status === 'finished' && (location.pathname.startsWith('/game') || location.pathname.startsWith('/lobby'))) {
-        navigate('/results');
+
+      const path = location.pathname;
+
+      if (roomData.status === 'starting' || roomData.status === 'question' || roomData.status === 'leaderboard') {
+        if (path.startsWith('/lobby') && roomData.code) {
+          navigate(`/game/${roomData.code}`);
+        }
+      } else if (roomData.status === 'finished') {
+        if (path.startsWith('/game') || path.startsWith('/lobby')) {
+          navigate('/results');
+        }
       }
-    });
+    };
+
+    socket.on('room_update', handleRoomUpdate);
 
     return () => {
-      socket.off('room_update');
+      socket.off('room_update', handleRoomUpdate);
     };
   }, [syncWithRoom, navigate, location.pathname]);
 

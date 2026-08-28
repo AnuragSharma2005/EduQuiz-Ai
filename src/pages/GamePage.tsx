@@ -50,8 +50,10 @@ const DEFAULT_FALLBACK_QUIZ = {
 
 export const GamePage = () => {
   const navigate = useNavigate();
-  const { code } = useParams();
-  const { currentQuiz, currentQuestionIndex, status, players, me, questionStartTime } = useGameStore();
+  const { code: paramCode } = useParams();
+  const { currentQuiz, currentQuestionIndex, status, players, me, questionStartTime, roomCode: storeRoomCode } = useGameStore();
+
+  const code = paramCode || storeRoomCode || '';
 
   const isHost = Boolean(me?.isHost);
   const contestants = players.filter((player) => !player.isHost);
@@ -80,7 +82,7 @@ export const GamePage = () => {
 
   const liveAverageSpeedValue = answeredCount > 0 ? Number((liveAverageSpeed / answeredCount).toFixed(1)) : 0;
 
-  const accuracyData = (currentQuiz?.questions || []).slice(0, 6).map((question, index) => {
+  const accuracyData = (activeQuiz?.questions || []).slice(0, 6).map((question, index) => {
     const attempts = contestants.flatMap((player) => player.answers || []).filter((answer) => answer.questionIndex === index);
     const correct = attempts.filter((answer) => answer.isCorrect).length;
     return {
@@ -89,7 +91,7 @@ export const GamePage = () => {
     };
   });
 
-  const responseTimeData = (currentQuiz?.questions || []).slice(0, 6).map((question, index) => {
+  const responseTimeData = (activeQuiz?.questions || []).slice(0, 6).map((question, index) => {
     const attempts = contestants.flatMap((player) => player.answers || []).filter((answer) => answer.questionIndex === index);
     const totalTime = attempts.reduce((sum, answer) => sum + (answer.timeSpent || 0), 0);
     return {
@@ -108,7 +110,7 @@ export const GamePage = () => {
 
   useEffect(() => {
     if (status === 'leaderboard') {
-      const my = players.find((p) => p.id === me?.id);
+      const my = players.find((p) => (p.id && me?.id && p.id === me.id) || (p.username && me?.username && p.username.toLowerCase() === me.username.toLowerCase()));
       console.debug('GamePage: revealing answers', { status, myLastAnswerCorrect: my?.lastAnswerCorrect, meId: me?.id });
       setIsCorrect(my?.lastAnswerCorrect ?? false);
       setShowFeedback(true);
@@ -134,13 +136,14 @@ export const GamePage = () => {
       setShowFeedback(false);
       setIsCorrect(null);
     }
-  }, [currentQuestionIndex, status]);
+  }, [currentQuestionIndex, status, currentQuestion?.timeLimit]);
 
   const submitAnswerToServer = useCallback((index: number) => {
-    if (isHost) return;
+    if (isHost || !code) return;
 
-    const timeSpent = (currentQuestion?.timeLimit || 15) - timeLeft;
-    const correct = index === currentQuestion?.correctAnswer;
+    const limit = currentQuestion?.timeLimit || 15;
+    const timeSpent = Math.min(limit, Math.max(0, limit - timeLeft));
+    const correct = index >= 0 && index === currentQuestion?.correctAnswer;
     const score = correct ? 1000 + (timeLeft * 50) : 0;
 
     socket.emit('submit_answer', {
@@ -164,17 +167,20 @@ export const GamePage = () => {
     if (status !== 'question' || showFeedback) return;
 
     const updateSyncTimer = () => {
+      const limit = currentQuestion?.timeLimit || 15;
       if (questionStartTime) {
         const elapsed = Math.floor((Date.now() - questionStartTime) / 1000);
-        const remaining = Math.max(0, (currentQuestion?.timeLimit || 15) - elapsed);
+        const remaining = Math.max(0, limit - elapsed);
         setTimeLeft(remaining);
 
         if (remaining === 0) {
           if (isHost) {
             socket.emit('show_leaderboard', { roomCode: code });
           } else {
-            if (selectedAnswer === null) setSelectedAnswer(-1);
-            submitAnswerToServer(-1);
+            if (selectedAnswer === null) {
+              setSelectedAnswer(-1);
+              submitAnswerToServer(-1);
+            }
           }
         }
       } else {
@@ -185,10 +191,12 @@ export const GamePage = () => {
     updateSyncTimer();
     const timer = setInterval(updateSyncTimer, 1000);
     return () => clearInterval(timer);
-  }, [status, questionStartTime, currentQuestionIndex, showFeedback, isHost, code, selectedAnswer, submitAnswerToServer]);
+  }, [status, questionStartTime, currentQuestionIndex, showFeedback, isHost, code, selectedAnswer, submitAnswerToServer, currentQuestion]);
 
   const nextQuestion = () => {
-    socket.emit('next_question', { roomCode: code });
+    if (code) {
+      socket.emit('next_question', { roomCode: code });
+    }
   };
 
   const sortedPlayers = [...contestants].sort((a, b) => b.score - a.score);

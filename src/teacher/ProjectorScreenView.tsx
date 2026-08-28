@@ -125,7 +125,14 @@ export const ProjectorScreenView: React.FC = () => {
     if (!activeSession || activeSession.status !== 'live') return;
 
     const interval = setInterval(() => {
-      tickTimer();
+      if (activeSession.timer > 0) {
+        useTeacherStore.setState({
+          activeSession: {
+            ...activeSession,
+            timer: Math.max(0, activeSession.timer - 1),
+          },
+        });
+      }
     }, 1000);
 
     return () => clearInterval(interval);

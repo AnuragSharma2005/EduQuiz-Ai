@@ -5,8 +5,21 @@ import confetti from 'canvas-confetti';
 import { Trophy, RotateCcw, Home, BarChart3 } from 'lucide-react';
 import { Button, Card } from '../components/UI';
 import { useGameStore } from '../store/useGameStore';
+import { cn } from '../utils/constants';
 
 import { useStudentStore, StudentAssessmentHistoryItem } from '../student/studentStore';
+
+const RenderAvatar = ({ avatar, className }: { avatar?: string; className?: string }) => {
+  const isUrl = avatar && (avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('data:') || avatar.startsWith('/'));
+  if (isUrl) {
+    return <img src={avatar} alt="avatar" className={className} referrerPolicy="no-referrer" />;
+  }
+  return (
+    <div className={cn("flex items-center justify-center bg-sky-950/80 border border-sky-500/30 text-2xl font-bold rounded-2xl", className)}>
+      {avatar || '🎓'}
+    </div>
+  );
+};
 
 export const ResultsPage = () => {
   const navigate = useNavigate();
@@ -24,16 +37,22 @@ export const ResultsPage = () => {
   const myIndex = sortedPlayers.findIndex(
     (p) => (me?.id && p.id === me.id) || (me?.username && p.username?.toLowerCase() === me.username.toLowerCase())
   );
-  const myRank = myIndex !== -1 ? myIndex + 1 : 1;
-  const myPlayerObj = myIndex !== -1 ? sortedPlayers[myIndex] : (sortedPlayers[0] || me);
+  const myRank = myIndex !== -1 ? myIndex + 1 : (sortedPlayers.length > 0 ? sortedPlayers.length : 1);
+  const myPlayerObj = myIndex !== -1 ? sortedPlayers[myIndex] : (sortedPlayers[0] || me || { id: 'std', username: 'Student', score: 0, avatar: '🎓' });
+
+  const isWinner = myRank === 1 && (myPlayerObj?.score || 0) > 0;
+  const isLastRank = myRank === sortedPlayers.length && sortedPlayers.length > 1;
+  const isZeroScore = (myPlayerObj?.score || 0) === 0;
 
   useEffect(() => {
-    confetti({
-      particleCount: 150,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#6366f1', '#ec4899', '#10b981', '#f59e0b']
-    });
+    if (isWinner) {
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#6366f1', '#ec4899', '#10b981', '#f59e0b']
+      });
+    }
 
     if (!hasRecordedRef.current && isStudentAuth) {
       hasRecordedRef.current = true;
@@ -45,13 +64,13 @@ export const ResultsPage = () => {
         date: new Date().toLocaleDateString('en-GB'),
         score: myPlayerObj?.score || me?.score || 0,
         totalQuestions: totalQ,
-        correctAnswers: (myPlayerObj as any)?.correctAnswers || Math.min(totalQ, Math.max(1, Math.floor((myPlayerObj?.score || 0) / 1000))),
+        correctAnswers: (myPlayerObj as any)?.correctAnswers || Math.min(totalQ, Math.max(0, Math.floor((myPlayerObj?.score || 0) / 1000))),
         rank: myRank,
         totalParticipants: sortedPlayers.length || 1,
       };
       addHistoryItem(historyItem);
     }
-  }, [isStudentAuth, me, roomCode, currentQuiz, myRank, myPlayerObj, sortedPlayers.length, addHistoryItem]);
+  }, [isStudentAuth, me, roomCode, currentQuiz, myRank, myPlayerObj, sortedPlayers.length, addHistoryItem, isWinner]);
 
   const handlePlayAgain = () => {
     resetGame();
@@ -67,21 +86,61 @@ export const ResultsPage = () => {
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="mb-10 p-6 rounded-3xl bg-gradient-to-r from-indigo-950/80 via-blue-900/60 to-purple-950/80 border border-sky-500/30 text-center shadow-2xl relative overflow-hidden"
+          className={cn(
+            "mb-10 p-8 rounded-3xl border text-center shadow-2xl relative overflow-hidden transition-all",
+            isWinner
+              ? "bg-gradient-to-r from-amber-950/90 via-emerald-950/80 to-indigo-950/90 border-amber-500/50 shadow-amber-950/50"
+              : isLastRank
+                ? "bg-gradient-to-r from-rose-950/90 via-red-950/80 to-slate-950/90 border-rose-500/50 shadow-rose-950/50"
+                : isZeroScore
+                  ? "bg-gradient-to-r from-slate-950/90 via-indigo-950/80 to-purple-950/90 border-indigo-500/40 shadow-sky-950/50"
+                  : "bg-gradient-to-r from-indigo-950/80 via-blue-900/60 to-purple-950/80 border-sky-500/30 shadow-sky-950/50"
+          )}
         >
           <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="text-xs font-black tracking-widest text-sky-400 uppercase mb-1">
-            BATTLE RESULT COMPLETED
+          <div className="text-xs font-black tracking-widest uppercase mb-2 flex items-center justify-center gap-2">
+            {isWinner ? (
+              <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                👑 CHAMPION VICTORY
+              </span>
+            ) : isLastRank ? (
+              <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                ⚠️ BATTLE RESULT
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                ⚡ BATTLE RANKING
+              </span>
+            )}
           </div>
+
           <h2 className="text-3xl sm:text-5xl font-black italic uppercase tracking-tight text-white">
-            {myRank === 1 ? '🎉 WINNER! CHAMPION RANK #1' : `YOUR RANK: #${myRank} OUT OF ${sortedPlayers.length}`}
+            {isWinner
+              ? '🎉 WINNER! CHAMPION RANK #1'
+              : isLastRank
+                ? `❌ YOU LOST! RANK #${myRank} OUT OF ${sortedPlayers.length || 1}`
+                : `YOUR RANK: #${myRank} OUT OF ${sortedPlayers.length || 1}`}
           </h2>
-          <div className="mt-3 flex items-center justify-center gap-6 text-sm sm:text-lg font-bold text-slate-300">
-            <span className="bg-white/10 px-4 py-1.5 rounded-full border border-white/10 text-amber-300 font-extrabold">
+
+          <p className="mt-3 text-sm sm:text-base font-semibold text-slate-300 max-w-xl mx-auto">
+            {isWinner
+              ? 'Outstanding performance! You conquered the battle arena with the highest score.'
+              : isLastRank
+                ? 'You finished in last place. Don’t give up — study hard and try again to climb the leaderboard!'
+                : isZeroScore
+                  ? 'No options selected or 0 points scored. Review the materials and attempt again next round!'
+                  : `Great effort! You secured Rank #${myRank}. Keep pushing for Rank #1 next time!`}
+          </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm sm:text-lg font-bold">
+            <span className="bg-white/10 px-5 py-2 rounded-2xl border border-white/10 text-amber-300 font-black">
               Score: {myPlayerObj?.score || 0} pts
             </span>
-            <span className="bg-white/10 px-4 py-1.5 rounded-full border border-white/10 text-emerald-300 font-extrabold">
-              Correct: {myPlayerObj?.correctAnswers || 0}
+            <span className="bg-white/10 px-5 py-2 rounded-2xl border border-white/10 text-emerald-300 font-black">
+              Correct: {(myPlayerObj as any)?.correctAnswers || 0}
+            </span>
+            <span className="bg-white/10 px-5 py-2 rounded-2xl border border-white/10 text-sky-300 font-black">
+              Rank: #{myRank} / {sortedPlayers.length || 1}
             </span>
           </div>
         </motion.div>
@@ -105,11 +164,11 @@ export const ResultsPage = () => {
               transition={{ delay: 0.5, duration: 0.8 }}
               className="flex-1 flex flex-col items-center"
             >
-              <img src={top3[1].avatar} className="w-16 h-16 rounded-2xl mb-4 border-4 border-slate-300 shadow-xl" referrerPolicy="no-referrer" />
+              <RenderAvatar avatar={top3[1].avatar} className="w-16 h-16 rounded-2xl mb-4 border-4 border-slate-300 shadow-xl" />
               <div className="w-full bg-slate-300/20 border-t-4 border-slate-300 rounded-t-3xl p-4 flex flex-col items-center justify-center flex-1">
                 <span className="text-2xl font-black text-slate-300 mb-1">2nd</span>
-                <span className="font-bold truncate w-full text-center">{top3[1].username}</span>
-                <span className="text-xs font-black text-slate-300/60 uppercase">{top3[1].score} pts</span>
+                <span className="font-bold truncate w-full text-center">{top3[1].username || 'Student'}</span>
+                <span className="text-xs font-black text-slate-300/60 uppercase">{top3[1].score || 0} pts</span>
               </div>
             </motion.div>
           )}
@@ -124,12 +183,12 @@ export const ResultsPage = () => {
             >
               <div className="relative mb-4">
                 <Trophy className="absolute -top-10 left-1/2 -translate-x-1/2 text-yellow-500 w-12 h-12 animate-bounce" />
-                <img src={top3[0].avatar} className="w-24 h-24 rounded-3xl border-4 border-yellow-500 shadow-2xl shadow-yellow-500/20" referrerPolicy="no-referrer" />
+                <RenderAvatar avatar={top3[0].avatar} className="w-24 h-24 rounded-3xl border-4 border-yellow-500 shadow-2xl shadow-yellow-500/20" />
               </div>
               <div className="w-full bg-yellow-500/20 border-t-4 border-yellow-500 rounded-t-3xl p-6 flex flex-col items-center justify-center flex-1">
                 <span className="text-4xl font-black text-yellow-500 mb-1">1st</span>
-                <span className="text-xl font-black truncate w-full text-center">{top3[0].username}</span>
-                <span className="text-sm font-black text-yellow-500/60 uppercase">{top3[0].score} pts</span>
+                <span className="text-xl font-black truncate w-full text-center">{top3[0].username || 'Student'}</span>
+                <span className="text-sm font-black text-yellow-500/60 uppercase">{top3[0].score || 0} pts</span>
               </div>
             </motion.div>
           )}
@@ -142,11 +201,11 @@ export const ResultsPage = () => {
               transition={{ delay: 0.8, duration: 0.8 }}
               className="flex-1 flex flex-col items-center"
             >
-              <img src={top3[2].avatar} className="w-16 h-16 rounded-2xl mb-4 border-4 border-amber-600 shadow-xl" referrerPolicy="no-referrer" />
+              <RenderAvatar avatar={top3[2].avatar} className="w-16 h-16 rounded-2xl mb-4 border-4 border-amber-600 shadow-xl" />
               <div className="w-full bg-amber-600/20 border-t-4 border-amber-600 rounded-t-3xl p-4 flex flex-col items-center justify-center flex-1">
                 <span className="text-2xl font-black text-amber-600 mb-1">3rd</span>
-                <span className="font-bold truncate w-full text-center">{top3[2].username}</span>
-                <span className="text-xs font-black text-amber-600/60 uppercase">{top3[2].score} pts</span>
+                <span className="font-bold truncate w-full text-center">{top3[2].username || 'Student'}</span>
+                <span className="text-xs font-black text-amber-600/60 uppercase">{top3[2].score || 0} pts</span>
               </div>
             </motion.div>
           )}
@@ -157,11 +216,11 @@ export const ResultsPage = () => {
           <Card className="mb-12">
             <div className="space-y-2">
               {rest.map((player, i) => (
-                <div key={player.id} className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-colors">
+                <div key={player.id || i} className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-colors">
                   <span className="w-8 text-white/20 font-black italic">{i + 4}</span>
-                  <img src={player.avatar} className="w-10 h-10 rounded-xl" referrerPolicy="no-referrer" />
-                  <span className="flex-1 font-bold">{player.username}</span>
-                  <span className="font-black text-indigo-400">{player.score}</span>
+                  <RenderAvatar avatar={player.avatar} className="w-10 h-10 rounded-xl" />
+                  <span className="flex-1 font-bold">{player.username || 'Student'}</span>
+                  <span className="font-black text-indigo-400">{player.score || 0}</span>
                 </div>
               ))}
             </div>

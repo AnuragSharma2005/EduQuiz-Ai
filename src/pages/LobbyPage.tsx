@@ -54,6 +54,7 @@ export const LobbyPage = () => {
     currentQuiz,
     players,
     me,
+    status,
     setCurrentQuiz,
     setStatus,
     addPlayer,
@@ -70,6 +71,14 @@ export const LobbyPage = () => {
       setRoomCode(code);
     }
   }, [code, setRoomCode]);
+
+  useEffect(() => {
+    if ((status === 'starting' || status === 'question' || status === 'leaderboard') && code) {
+      navigate(`/game/${code}`);
+    } else if (status === 'finished') {
+      navigate('/results');
+    }
+  }, [status, code, navigate]);
 
   useEffect(() => {
     const existingPlayer = me || players.find(p => (p.id && (p.id === socket.id || p.id === currentStudent?.id)) || (p.username && p.username === currentStudent?.name));
