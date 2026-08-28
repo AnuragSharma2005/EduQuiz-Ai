@@ -26,6 +26,8 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { useTeacherStore, ConnectedStudent } from './teacherStore';
+import { useGameStore } from '../store/useGameStore';
+import { LiveChatWidget } from '../components/LiveChatWidget';
 import { getFrontendOrigin } from '../services/config';
 
 const FALLBACK_QUESTION = {
@@ -738,6 +740,8 @@ export const ProjectorScreenView: React.FC = () => {
           </>
         )}
       </div>
+
+      <LiveChatWidget roomCode={roomCode} currentUser="Host Teacher" role="teacher" />
     </div>
   );
 };

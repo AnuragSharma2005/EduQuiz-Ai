@@ -418,6 +418,39 @@ export function registerGameHandlers(io, socket) {
     console.log(`🏁 Game manually ended by host in room ${roomCode}`);
   });
 
+  // ── Live Chat Message ─────────────────────────────────────────
+  socket.on('send_chat_message', ({ roomCode, sender, role, text }) => {
+    if (!roomCode || !text || !text.trim()) return;
+    const cleanCode = String(roomCode).trim().toUpperCase();
+    let room = rooms.get(cleanCode);
+    if (!room) {
+      room = createRoom(cleanCode);
+      rooms.set(cleanCode, room);
+    }
+    if (!room.messages) {
+      room.messages = [];
+    }
+
+    const messageObj = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      sender: sender || 'Anonymous',
+      role: role === 'teacher' ? 'teacher' : 'student',
+      text: text.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timeMs: Date.now(),
+    };
+
+    room.messages.push(messageObj);
+    if (room.messages.length > 100) {
+      room.messages.shift();
+    }
+
+    console.log(`💬 Chat in room ${cleanCode} from [${messageObj.role}] ${messageObj.sender}: "${messageObj.text}"`);
+
+    io.to(cleanCode).emit('chat_message_received', messageObj);
+    io.to(cleanCode).emit('room_update', room);
+  });
+
   // ── Disconnect ───────────────────────────────────────────────
   socket.on('disconnect', (reason) => {
     console.log(`🔌 Disconnected: ${socket.id} (${reason}) | Total: ${io.engine.clientsCount}`);

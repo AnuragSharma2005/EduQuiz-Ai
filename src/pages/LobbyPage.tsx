@@ -9,6 +9,7 @@ import { useGameStore, Player } from '../store/useGameStore';
 import { useStudentStore } from '../student/studentStore';
 import socket from '../services/socket';
 import { ParticleBackground } from '../components/ParticleBackground';
+import { LiveChatWidget } from '../components/LiveChatWidget';
 
 const DEFAULT_FALLBACK_QUIZ = {
   id: 'battle_quiz_default',
@@ -259,6 +260,8 @@ export const LobbyPage = () => {
         </div>
 
       </div>
+
+      <LiveChatWidget roomCode={code} currentUser={me?.username} role={me?.isHost ? 'teacher' : 'student'} />
     </div>
   );
 };

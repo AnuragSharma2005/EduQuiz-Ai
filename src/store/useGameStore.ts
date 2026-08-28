@@ -40,6 +40,15 @@ export type Quiz = {
 
 export type GameStatus = 'idle' | 'lobby' | 'starting' | 'question' | 'leaderboard' | 'finished';
 
+export type ChatMessage = {
+  id: string;
+  sender: string;
+  role: 'student' | 'teacher';
+  text: string;
+  timestamp: string;
+  timeMs: number;
+};
+
 interface GameState {
   // User State
   me: Player | null;
@@ -54,6 +63,11 @@ interface GameState {
   timer: number;
   questionStartTime?: number;
   questionAnsweredPlayerIds: string[];
+
+  // Live Chat State
+  chatMessages: ChatMessage[];
+  isChatOpen: boolean;
+  unreadChatCount: number;
   
   // Actions
   setRoomCode: (code: string | null) => void;
@@ -67,6 +81,9 @@ interface GameState {
   removePlayer: (playerId: string) => void;
   updatePlayerReady: (playerId: string, isReady: boolean) => void;
   updatePlayerScore: (playerId: string, score: number, correct: boolean) => void;
+  toggleChat: (open?: boolean) => void;
+  addChatMessage: (msg: ChatMessage) => void;
+  setChatMessages: (msgs: ChatMessage[]) => void;
   syncWithRoom: (roomData: any) => void;
   resetGame: () => void;
 }
@@ -82,6 +99,10 @@ export const useGameStore = create<GameState>((set) => ({
   currentQuestionIndex: 0,
   timer: 0,
   questionAnsweredPlayerIds: [],
+
+  chatMessages: [],
+  isChatOpen: false,
+  unreadChatCount: 0,
 
   setRoomCode: (code) => set({ roomCode: code }),
   setPlayers: (players) =>
@@ -121,8 +142,26 @@ export const useGameStore = create<GameState>((set) => ({
   updatePlayerScore: (playerId, score, correct) => set((state) => ({
     players: state.players.map(p => p.id === playerId ? { ...p, score: p.score + score, lastAnswerCorrect: correct } : p)
   })),
+  toggleChat: (open) =>
+    set((state) => {
+      const nextOpen = open !== undefined ? open : !state.isChatOpen;
+      return {
+        isChatOpen: nextOpen,
+        unreadChatCount: nextOpen ? 0 : state.unreadChatCount,
+      };
+    }),
+  addChatMessage: (msg) =>
+    set((state) => {
+      const exists = state.chatMessages.some((m) => m.id === msg.id);
+      if (exists) return state;
+      return {
+        chatMessages: [...state.chatMessages, msg],
+        unreadChatCount: state.isChatOpen ? 0 : state.unreadChatCount + 1,
+      };
+    }),
+  setChatMessages: (msgs) => set({ chatMessages: msgs }),
   syncWithRoom: (roomData) =>
-    set(() => {
+    set((state) => {
       const map = new Map<string, Player>();
       if (Array.isArray(roomData.players)) {
         roomData.players.forEach((p: Player) => {
@@ -130,6 +169,7 @@ export const useGameStore = create<GameState>((set) => ({
           if (key) map.set(key, p);
         });
       }
+      const roomMsgs = Array.isArray(roomData.messages) ? roomData.messages : state.chatMessages;
       return {
         players: Array.from(map.values()),
         status: roomData.status,
@@ -137,6 +177,7 @@ export const useGameStore = create<GameState>((set) => ({
         currentQuestionIndex: roomData.currentQuestionIndex,
         questionStartTime: roomData.questionStartTime,
         questionAnsweredPlayerIds: roomData.questionAnsweredPlayerIds || [],
+        chatMessages: roomMsgs,
       };
     }),
   resetGame: () => set({
@@ -147,5 +188,8 @@ export const useGameStore = create<GameState>((set) => ({
     currentQuestionIndex: 0,
     timer: 0,
     questionAnsweredPlayerIds: [],
+    chatMessages: [],
+    isChatOpen: false,
+    unreadChatCount: 0,
   }),
 }));

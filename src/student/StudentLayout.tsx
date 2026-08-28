@@ -9,8 +9,8 @@ import { LobbyPage } from '../pages/LobbyPage';
 import { GamePage } from '../pages/GamePage';
 import { ResultsPage } from '../pages/ResultsPage';
 import { ParticleBackground } from '../components/ParticleBackground';
-
 import { useGameStore } from '../store/useGameStore';
+import { LiveChatWidget } from '../components/LiveChatWidget';
 
 export const StudentLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -151,6 +151,9 @@ export const StudentLayout: React.FC = () => {
       <main className="flex-1 p-4 sm:p-6 lg:p-8 relative z-10">
         {renderContent()}
       </main>
+
+      {/* Live Chat Drawer Widget */}
+      <LiveChatWidget currentUser={currentStudent?.name} role="student" />
 
       {/* Security Login Modal Gate */}
       <StudentLoginModal />

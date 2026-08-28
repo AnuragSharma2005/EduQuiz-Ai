@@ -11,9 +11,12 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { useTeacherStore } from './teacherStore';
+import { useGameStore } from '../store/useGameStore';
+import { LiveChatWidget } from '../components/LiveChatWidget';
 
 export const TeacherLiveSessionControlView: React.FC = () => {
   const { activeSession, setSelectedTab, tickTimer, nextQuestion, endLiveSession } = useTeacherStore();
+  const { toggleChat, chatMessages, unreadChatCount } = useGameStore();
 
   // Active Timer Engine for Live Control Panel
   useEffect(() => {
@@ -62,7 +65,7 @@ export const TeacherLiveSessionControlView: React.FC = () => {
   const currentQuestion = assessment.questions[currentQuestionIndex] || assessment.questions[0];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto relative">
       {/* Top Header Row */}
       <div className="bg-[#070e28]/90 rounded-3xl p-6 border border-sky-500/30 shadow-xl shadow-sky-950/40 backdrop-blur-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 text-white">
         <div>
@@ -104,9 +107,17 @@ export const TeacherLiveSessionControlView: React.FC = () => {
             <span>Open Projector Screen ↗</span>
           </button>
 
-          <button className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-all flex items-center gap-2 cursor-pointer border border-white/10">
+          <button
+            onClick={() => toggleChat(true)}
+            className="relative px-4 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600/30 to-sky-600/30 hover:from-indigo-600/50 hover:to-sky-600/50 text-white font-bold text-xs transition-all flex items-center gap-2 cursor-pointer border border-sky-400/30 shadow-lg"
+          >
             <MessageSquare size={14} className="text-sky-300" />
-            <span>Live Chat ({students.length})</span>
+            <span>Live Chat ({chatMessages.length})</span>
+            {unreadChatCount > 0 && (
+              <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full animate-bounce">
+                {unreadChatCount}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -229,6 +240,8 @@ export const TeacherLiveSessionControlView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <LiveChatWidget roomCode={roomCode} currentUser="Dr. Sarah Jenkins" role="teacher" />
     </div>
   );
 };
