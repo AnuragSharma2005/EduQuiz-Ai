@@ -158,29 +158,25 @@ export const GamePage = () => {
   }, [currentQuestion, timeLeft, code, me, isHost]);
 
   const handleAnswerSubmit = useCallback((index: number) => {
-    if (showFeedback || isHost || selectedAnswer !== null) return;
+    if (showFeedback || isHost) return;
     setSelectedAnswer(index);
     submitAnswerToServer(index);
-  }, [showFeedback, isHost, selectedAnswer, submitAnswerToServer]);
+  }, [showFeedback, isHost, submitAnswerToServer]);
 
   useEffect(() => {
     if (status !== 'question' || showFeedback) return;
 
     const updateSyncTimer = () => {
-      const limit = currentQuestion?.timeLimit || 15;
+      const limit = currentQuestion?.timeLimit || 20;
       if (questionStartTime) {
         const elapsed = Math.floor((Date.now() - questionStartTime) / 1000);
         const remaining = Math.max(0, limit - elapsed);
         setTimeLeft(remaining);
 
         if (remaining === 0) {
-          if (isHost) {
-            socket.emit('show_leaderboard', { roomCode: code });
-          } else {
-            if (selectedAnswer === null) {
-              setSelectedAnswer(-1);
-              submitAnswerToServer(-1);
-            }
+          if (!isHost && selectedAnswer === null) {
+            setSelectedAnswer(-1);
+            submitAnswerToServer(-1);
           }
         }
       } else {
@@ -500,7 +496,7 @@ export const GamePage = () => {
                       text={option}
                       index={i}
                       onClick={() => handleAnswerSubmit(i)}
-                      disabled={selectedAnswer !== null || inlineRevealActive}
+                      disabled={inlineRevealActive}
                       isSelected={selectedAnswer === i}
                       isCorrect={isCorrectOption}
                       isWrong={shouldDim}

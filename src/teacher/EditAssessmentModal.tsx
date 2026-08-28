@@ -57,19 +57,30 @@ export const EditAssessmentModal: React.FC = () => {
     setQuestions(updated);
   };
 
+  const handleTimerChange = (val: number) => {
+    setTimePerQuestion(val);
+    setQuestions((prev) => prev.map((q) => ({ ...q, timeLimit: val })));
+  };
+
   const handleSave = () => {
-    updateAssessment(editingAssessment.id, {
+    const formattedQuestions = questions.map((q, idx) => ({
+      ...q,
+      text: q.text || `Question ${idx + 1}`,
+      options: q.options.map((opt, oIdx) => opt || `Option ${oIdx + 1}`),
+      timeLimit: timePerQuestion,
+    }));
+    updateAssessment(editingAssessment.id || (editingAssessment as any)._id, {
       title,
       category,
       difficulty,
       timePerQuestion,
-      questions,
+      questions: formattedQuestions,
     });
   };
 
   const handleSaveAndHost = () => {
     handleSave();
-    startLiveSession(editingAssessment.id);
+    startLiveSession(editingAssessment.id || (editingAssessment as any)._id);
   };
 
   return (
@@ -136,13 +147,13 @@ export const EditAssessmentModal: React.FC = () => {
             <label className="text-xs font-bold text-sky-300 block mb-1">Question Timer (Seconds)</label>
             <select
               value={timePerQuestion}
-              onChange={(e) => setTimePerQuestion(Number(e.target.value))}
+              onChange={(e) => handleTimerChange(Number(e.target.value))}
               className="w-full px-4 py-2.5 rounded-xl bg-[#04091a] border border-sky-500/30 text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-400"
             >
-              <option value={15} className="bg-[#04091a]">15 Seconds</option>
-              <option value={20} className="bg-[#04091a]">20 Seconds</option>
-              <option value={30} className="bg-[#04091a]">30 Seconds</option>
-              <option value={60} className="bg-[#04091a]">60 Seconds</option>
+              <option value={15} className="bg-[#04091a]">15s</option>
+              <option value={30} className="bg-[#04091a]">30s</option>
+              <option value={60} className="bg-[#04091a]">60s</option>
+              <option value={90} className="bg-[#04091a]">90s</option>
             </select>
           </div>
         </div>

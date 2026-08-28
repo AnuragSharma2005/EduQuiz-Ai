@@ -40,6 +40,7 @@ export interface LiveSessionState {
   status: 'lobby' | 'live' | 'finished';
   currentQuestionIndex: number;
   timer: number;
+  questionStartTime?: number;
   students: ConnectedStudent[];
 }
 
@@ -709,16 +710,53 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
   },
 
   updateAssessment: (id, updatedData) => {
-    const updated = get().assessments.map((a) => (a.id === id ? { ...a, ...updatedData } : a));
+    const updated = get().assessments.map((a) => {
+      if (a.id === id || (a as any)._id === id) {
+        const timeLimit = updatedData.timePerQuestion || a.timePerQuestion || 60;
+        const formattedQuestions = (updatedData.questions || a.questions).map((q) => ({
+          ...q,
+          timeLimit: q.timeLimit || timeLimit,
+        }));
+        return {
+          ...a,
+          ...updatedData,
+          timePerQuestion: timeLimit,
+          questions: formattedQuestions,
+        };
+      }
+      return a;
+    });
+
     set({ assessments: updated, editingAssessment: null });
 
     const currentTeacher = get().currentTeacher;
     if (currentTeacher?.id) {
       localStorage.setItem(`teacher_assessments_${currentTeacher.id}`, JSON.stringify(updated));
     }
+    if (currentTeacher?.email) {
+      localStorage.setItem(`teacher_assessments_${currentTeacher.email}`, JSON.stringify(updated));
+    }
+
+    // Sync updated quiz to useGameStore
+    const targetAss = updated.find((a) => a.id === id || (a as any)._id === id);
+    if (targetAss) {
+      useGameStore.getState().setCurrentQuiz({
+        id: targetAss.id || (targetAss as any)._id,
+        title: targetAss.title,
+        category: targetAss.category,
+        difficulty: targetAss.difficulty as any,
+        questions: targetAss.questions.map((q, idx) => ({
+          id: q.id || `q_${idx}`,
+          text: q.text,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          timeLimit: q.timeLimit || targetAss.timePerQuestion || 60,
+        })),
+      });
+    }
 
     // Update in MongoDB
-    fetch(`${getApiBase()}/quizzes/${id}`, {
+    fetch(`${getApiBase()}/quizzes/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedData),
@@ -726,11 +764,11 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
   },
 
   deleteAssessment: async (id: string) => {
-    const targetAssessment = get().assessments.find((a) => a.id === id);
+    const targetAssessment = get().assessments.find((a) => a.id === id || (a as any)._id === id);
     const assessmentTitle = targetAssessment?.title;
 
     // 1. Remove assessment from assessments AND remove matching session from sessionHistory
-    const updatedAssessments = get().assessments.filter((a) => a.id !== id);
+    const updatedAssessments = get().assessments.filter((a) => a.id !== id && (a as any)._id !== id);
     let updatedSessions = get().sessionHistory;
     if (assessmentTitle) {
       updatedSessions = get().sessionHistory.filter(
@@ -777,7 +815,7 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
 
   // Live Session Operations
   startLiveSession: (assessmentId) => {
-    const assessment = get().assessments.find((a) => a.id === assessmentId) || get().assessments[0];
+    const assessment = get().assessments.find((a) => a.id === assessmentId || (a as any)._id === assessmentId) || get().assessments[0];
     
     const codeChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let roomCode = '';
@@ -1082,22 +1120,12 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
 
   simulateScores: () => {
     const session = get().activeSession;
-    if (!session) return;
+    if (!session || !session.students || session.students.length === 0) return;
 
-    let currentStudents = [...session.students];
-    if (currentStudents.length < 3) {
-      currentStudents = [
-        { id: 'std_demo_1', name: 'Anurag Sharma', email: 'anurag@student.edu', avatar: '👨‍🎓', status: 'SUBMITTED', score: 850 },
-        { id: 'std_demo_2', name: 'Alice Johnson', email: 'alice@student.edu', avatar: '👩‍🎓', status: 'SUBMITTED', score: 780 },
-        { id: 'std_demo_3', name: 'Bob Smith', email: 'bob@student.edu', avatar: '🎓', status: 'SUBMITTED', score: 720 },
-        { id: 'std_demo_4', name: 'Charlie Brown', email: 'charlie@student.edu', avatar: '👨‍💻', status: 'SUBMITTED', score: 650 },
-        { id: 'std_demo_5', name: 'David Miller', email: 'david@student.edu', avatar: '🎓', status: 'SUBMITTED', score: 590 },
-      ];
-    }
-
-    const updatedStudents = currentStudents.map((student) => {
-      if (Math.random() > 0.3) {
-        const bonus = Math.floor(Math.random() * 260) + 120;
+    // Only update scores for real connected students
+    const updatedStudents = session.students.map((student) => {
+      if (Math.random() > 0.4) {
+        const bonus = Math.floor(Math.random() * 150) + 50;
         return {
           ...student,
           score: student.score + bonus,
@@ -1203,13 +1231,24 @@ if (typeof window !== 'undefined') {
     // Maintain current teacher session status ('lobby' or 'live')
     const currentQIdx = roomData.currentQuestionIndex !== undefined ? roomData.currentQuestionIndex : state.activeSession.currentQuestionIndex;
     const isLive = roomData.status === 'question' || roomData.status === 'starting';
+    const qStartTime = roomData.questionStartTime || state.activeSession.questionStartTime;
+    const assessment = roomData.currentQuiz || state.activeSession.assessment;
+    const timeLimit = assessment?.questions?.[currentQIdx]?.timeLimit || 20;
+
+    let syncedTimer = state.activeSession.timer;
+    if (qStartTime && roomData.status === 'question') {
+      const elapsed = Math.floor((Date.now() - qStartTime) / 1000);
+      syncedTimer = Math.max(0, timeLimit - elapsed);
+    }
     
     useTeacherStore.setState({
       activeSession: {
         ...state.activeSession,
         status: isLive ? 'live' : roomData.status === 'finished' ? 'finished' : state.activeSession.status,
         currentQuestionIndex: currentQIdx,
-        assessment: roomData.currentQuiz || state.activeSession.assessment,
+        assessment,
+        timer: syncedTimer,
+        questionStartTime: qStartTime,
         students: connectedStudents,
       },
     });

@@ -122,23 +122,33 @@ export const ProjectorScreenView: React.FC = () => {
     };
   }, []);
 
-  // Active Live Timer Interval Engine (Projector Sync)
+  // Active Live Timer Interval Engine (Projector Sync with Server questionStartTime)
   useEffect(() => {
     if (!activeSession || activeSession.status !== 'live') return;
 
-    const interval = setInterval(() => {
-      if (activeSession.timer > 0) {
-        useTeacherStore.setState({
-          activeSession: {
-            ...activeSession,
-            timer: Math.max(0, activeSession.timer - 1),
-          },
-        });
+    const updateTimer = () => {
+      const qLimit = activeSession.assessment?.questions?.[activeSession.currentQuestionIndex]?.timeLimit || 20;
+      const qStart = activeSession.questionStartTime;
+      let remaining = activeSession.timer;
+      if (qStart) {
+        const elapsed = Math.floor((Date.now() - qStart) / 1000);
+        remaining = Math.max(0, qLimit - elapsed);
+      } else {
+        remaining = Math.max(0, activeSession.timer - 1);
       }
-    }, 1000);
 
+      useTeacherStore.setState({
+        activeSession: {
+          ...activeSession,
+          timer: remaining,
+        },
+      });
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [activeSession?.status, activeSession?.timer, activeSession?.currentQuestionIndex]);
+  }, [activeSession?.status, activeSession?.questionStartTime, activeSession?.currentQuestionIndex]);
 
   // AUTOMATIC LIVE SCORE & MOVEMENT ENGINE ("automatic kr do automatic move kre jaise jaise jyada kam h")
   useEffect(() => {
@@ -239,16 +249,14 @@ export const ProjectorScreenView: React.FC = () => {
   const safeIndex = Math.min(Math.max(0, currentQuestionIndex), questionsList.length - 1);
   const currentQuestion = questionsList[safeIndex] || FALLBACK_QUESTION;
 
-  const activeStudentsList: ConnectedStudent[] = (students && students.length > 0)
-    ? students
-    : DEFAULT_DEMO_STUDENTS;
+  const activeStudentsList: ConnectedStudent[] = students || [];
 
   // AUTOMATIC RE-ORDERING: Sort descending by score ("jiske jyada points hore hai wo upar ho jaye")
   const sortedLeaderboard = [...activeStudentsList].sort((a, b) => b.score - a.score);
 
-  const winner1 = sortedLeaderboard[0] || { name: 'Anurag Sharma', score: 940 };
-  const winner2 = sortedLeaderboard[1] || { name: 'Alice Johnson', score: 880 };
-  const winner3 = sortedLeaderboard[2] || { name: 'Bob Smith', score: 820 };
+  const winner1 = sortedLeaderboard[0];
+  const winner2 = sortedLeaderboard[1];
+  const winner3 = sortedLeaderboard[2];
 
   const isFinished = status === 'finished';
   const isLobby = status === 'lobby';
@@ -609,64 +617,79 @@ export const ProjectorScreenView: React.FC = () => {
             /* Final Leaderboard Podium */
             <div className="max-w-4xl mx-auto w-full my-auto text-center space-y-8 py-6">
               <div>
-                <span className="px-4 py-1.5 rounded-full bg-pink-500/20 border border-pink-500/40 text-pink-300 font-extrabold text-xs tracking-widest uppercase mb-3 inline-block">
-                  🏆 BATTLE VICTORIOUS
-                </span>
+                {winner1 && winner1.score > 0 ? (
+                  <span className="px-4 py-1.5 rounded-full bg-pink-500/20 border border-pink-500/40 text-pink-300 font-extrabold text-xs tracking-widest uppercase mb-3 inline-block">
+                    🏆 BATTLE VICTORIOUS
+                  </span>
+                ) : (
+                  <span className="px-4 py-1.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 font-extrabold text-xs tracking-widest uppercase mb-3 inline-block animate-pulse">
+                    ⚠️ ZERO SCORE BATTLE — NO CHAMPION
+                  </span>
+                )}
                 <h2 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-white">
-                  Final Champion Leaderboard
+                  {winner1 && winner1.score > 0 ? 'Final Champion Leaderboard' : 'All Answers Incorrect / No Points Scored'}
                 </h2>
               </div>
 
               <div className="flex items-end justify-center gap-3 sm:gap-6 pt-4">
                 {/* 2nd Place */}
-                <motion.div
-                  initial={{ y: 100, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="flex flex-col items-center w-28 sm:w-44"
-                >
-                  <div className="w-14 h-14 rounded-full bg-slate-300 text-slate-900 font-black text-lg flex items-center justify-center mb-2 shadow-xl border-4 border-slate-400">
-                    🥈
-                  </div>
-                  <div className="text-xs sm:text-sm font-extrabold text-white truncate max-w-full">{winner2.name}</div>
-                  <div className="text-[11px] font-mono font-bold text-slate-300 mb-2">{winner2.score} pts</div>
-                  <div className="w-full h-36 sm:h-44 rounded-t-3xl bg-gradient-to-t from-slate-900 to-slate-700 border border-slate-500/40 flex items-center justify-center font-black text-3xl sm:text-4xl text-slate-300 shadow-2xl">
-                    2
-                  </div>
-                </motion.div>
+                {winner2 && (
+                  <motion.div
+                    initial={{ y: 100, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex flex-col items-center w-28 sm:w-44"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-slate-300 text-slate-900 font-black text-2xl flex items-center justify-center mb-2 shadow-xl border-4 border-slate-400">
+                      🐶
+                    </div>
+                    <div className="text-xs sm:text-sm font-extrabold text-white truncate max-w-full">{winner2.name}</div>
+                    <div className="text-[11px] font-mono font-bold text-slate-300 mb-2">{winner2.score} pts</div>
+                    <div className="w-full h-36 sm:h-44 rounded-t-3xl bg-gradient-to-t from-slate-900 to-slate-700 border border-slate-500/40 flex items-center justify-center font-black text-3xl sm:text-4xl text-slate-300 shadow-2xl">
+                      2
+                    </div>
+                  </motion.div>
+                )}
 
                 {/* 1st Place */}
-                <motion.div
-                  initial={{ y: 120, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  className="flex flex-col items-center w-32 sm:w-52"
-                >
-                  <div className="w-16 sm:w-20 h-16 sm:h-20 rounded-full bg-pink-400 text-slate-950 font-black text-2xl flex items-center justify-center mb-2 shadow-2xl border-4 border-pink-300 animate-bounce">
-                    👑
-                  </div>
-                  <div className="text-sm sm:text-base font-black text-pink-300 truncate max-w-full">{winner1.name}</div>
-                  <div className="text-xs font-mono font-bold text-pink-400 mb-2">{winner1.score} pts</div>
-                  <div className="w-full h-48 sm:h-60 rounded-t-3xl bg-gradient-to-t from-pink-700 via-pink-500 to-pink-400 border border-pink-300 flex items-center justify-center font-black text-4xl sm:text-5xl text-pink-950 shadow-[0_0_50px_rgba(236,72,153,0.4)]">
-                    1
-                  </div>
-                </motion.div>
+                {winner1 && (
+                  <motion.div
+                    initial={{ y: 120, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="flex flex-col items-center w-32 sm:w-52"
+                  >
+                    <div className="relative mb-2">
+                      <div className={`w-20 sm:w-24 h-20 sm:h-24 rounded-full ${winner1.score > 0 ? 'bg-gradient-to-tr from-pink-500 to-amber-400 border-pink-300 animate-bounce' : 'bg-rose-950 border-rose-500'} text-slate-950 font-black text-3xl flex items-center justify-center shadow-2xl border-4`}>
+                        {winner1.score > 0 ? '🐱' : '😿'}
+                      </div>
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-2xl">{winner1.score > 0 ? '👑' : '⚠️'}</span>
+                    </div>
+                    <div className="text-sm sm:text-base font-black text-pink-300 truncate max-w-full">{winner1.name}</div>
+                    <div className="text-xs font-mono font-bold text-pink-400 mb-2">{winner1.score} pts</div>
+                    <div className="w-full h-48 sm:h-60 rounded-t-3xl bg-gradient-to-t from-pink-700 via-pink-500 to-pink-400 border border-pink-300 flex items-center justify-center font-black text-4xl sm:text-5xl text-pink-950 shadow-[0_0_50px_rgba(236,72,153,0.4)]">
+                      1
+                    </div>
+                  </motion.div>
+                )}
 
                 {/* 3rd Place */}
-                <motion.div
-                  initial={{ y: 80, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className="flex flex-col items-center w-28 sm:w-44"
-                >
-                  <div className="w-14 h-14 rounded-full bg-purple-900 text-purple-100 font-black text-lg flex items-center justify-center mb-2 shadow-xl border-4 border-purple-700">
-                    🥉
-                  </div>
-                  <div className="text-xs sm:text-sm font-extrabold text-white truncate max-w-full">{winner3.name}</div>
-                  <div className="text-[11px] font-mono font-bold text-purple-300 mb-2">{winner3.score} pts</div>
-                  <div className="w-full h-28 sm:h-36 rounded-t-3xl bg-gradient-to-t from-purple-950 to-purple-900 border border-purple-800/40 flex items-center justify-center font-black text-3xl sm:text-4xl text-purple-400 shadow-2xl">
-                    3
-                  </div>
-                </motion.div>
+                {winner3 && (
+                  <motion.div
+                    initial={{ y: 80, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                    className="flex flex-col items-center w-28 sm:w-44"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-purple-900 text-purple-100 font-black text-2xl flex items-center justify-center mb-2 shadow-xl border-4 border-purple-700">
+                      🦊
+                    </div>
+                    <div className="text-xs sm:text-sm font-extrabold text-white truncate max-w-full">{winner3.name}</div>
+                    <div className="text-[11px] font-mono font-bold text-purple-300 mb-2">{winner3.score} pts</div>
+                    <div className="w-full h-28 sm:h-36 rounded-t-3xl bg-gradient-to-t from-purple-950 to-purple-900 border border-purple-800/40 flex items-center justify-center font-black text-3xl sm:text-4xl text-purple-400 shadow-2xl">
+                      3
+                    </div>
+                  </motion.div>
+                )}
               </div>
             </div>
           )}

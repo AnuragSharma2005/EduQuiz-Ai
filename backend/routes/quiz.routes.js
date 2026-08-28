@@ -96,14 +96,34 @@ router.put('/:id', async (req, res, next) => {
       return res.status(400).json({ error: 'title and at least one question are required' });
     }
 
-    const updatedQuiz = await Quiz.findByIdAndUpdate(
-      req.params.id,
-      { title, category, difficulty, timePerQuestion, questions },
-      { new: true, runValidators: true }
-    ).select('-__v');
+    const { id } = req.params;
+    let updatedQuiz = null;
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      updatedQuiz = await Quiz.findByIdAndUpdate(
+        id,
+        { title, category, difficulty, timePerQuestion, questions },
+        { new: true, runValidators: true }
+      ).select('-__v');
+    }
 
     if (!updatedQuiz) {
-      return res.status(404).json({ error: 'Quiz not found' });
+      updatedQuiz = await Quiz.findOneAndUpdate(
+        { $or: [{ id: id }, { title: id }] },
+        { title, category, difficulty, timePerQuestion, questions },
+        { new: true, runValidators: true }
+      ).select('-__v');
+    }
+
+    if (!updatedQuiz) {
+      updatedQuiz = await new Quiz({
+        id,
+        title,
+        category: category || 'General',
+        difficulty: difficulty || 'Medium',
+        timePerQuestion: timePerQuestion || 20,
+        questions,
+      }).save();
     }
 
     console.log(`✅ Quiz updated: "${updatedQuiz.title}" (${updatedQuiz.questions.length} questions)`);

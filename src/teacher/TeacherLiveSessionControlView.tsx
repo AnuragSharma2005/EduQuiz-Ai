@@ -18,23 +18,33 @@ export const TeacherLiveSessionControlView: React.FC = () => {
   const { activeSession, setSelectedTab, tickTimer, nextQuestion, endLiveSession } = useTeacherStore();
   const { toggleChat, chatMessages, unreadChatCount } = useGameStore();
 
-  // Active Timer Engine for Live Control Panel
+  // Active Timer Engine for Live Control Panel (Synced with Server questionStartTime)
   useEffect(() => {
     if (!activeSession || activeSession.status !== 'live') return;
 
-    const interval = setInterval(() => {
-      if (activeSession.timer > 0) {
-        useTeacherStore.setState({
-          activeSession: {
-            ...activeSession,
-            timer: Math.max(0, activeSession.timer - 1),
-          },
-        });
+    const updateTimer = () => {
+      const qLimit = activeSession.assessment?.questions?.[activeSession.currentQuestionIndex]?.timeLimit || 20;
+      const qStart = activeSession.questionStartTime;
+      let remaining = activeSession.timer;
+      if (qStart) {
+        const elapsed = Math.floor((Date.now() - qStart) / 1000);
+        remaining = Math.max(0, qLimit - elapsed);
+      } else {
+        remaining = Math.max(0, activeSession.timer - 1);
       }
-    }, 1000);
 
+      useTeacherStore.setState({
+        activeSession: {
+          ...activeSession,
+          timer: remaining,
+        },
+      });
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [activeSession?.status, activeSession?.timer, activeSession?.currentQuestionIndex]);
+  }, [activeSession?.status, activeSession?.questionStartTime, activeSession?.currentQuestionIndex]);
 
   // Clean 0 State when no live session active (Dark Indigo Theme)
   if (!activeSession) {

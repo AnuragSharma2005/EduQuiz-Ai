@@ -320,72 +320,129 @@ export function registerGameHandlers(io, socket) {
       room.questionAnsweredPlayerIds.push(playerId);
     }
 
-    player.score += Math.max(0, score || 0);
-    player.lastAnswerCorrect = isCorrect;
-    player.totalAttempted = (player.totalAttempted || 0) + 1;
-    
-    if (isCorrect) {
-      player.correctAnswers = (player.correctAnswers || 0) + 1;
+    player.answers = player.answers || [];
+    const newPts = isCorrect ? Math.max(0, score || 1000) : 0;
+    const existingIndex = player.answers.findIndex((a) => a.questionIndex === room.currentQuestionIndex);
+
+    if (existingIndex >= 0) {
+      const prevAns = player.answers[existingIndex];
+      player.score = Math.max(0, (player.score - (prevAns.points || 0)) + newPts);
+      player.lastAnswerCorrect = isCorrect;
+      player.answers[existingIndex] = {
+        questionIndex: room.currentQuestionIndex,
+        selectedAnswer,
+        correctAnswer,
+        isCorrect,
+        timeSpent: timeSpent || 0,
+        points: newPts,
+      };
+    } else {
+      player.score += newPts;
+      player.lastAnswerCorrect = isCorrect;
+      player.totalAttempted = (player.totalAttempted || 0) + 1;
+      player.answers.push({
+        questionIndex: room.currentQuestionIndex,
+        selectedAnswer,
+        correctAnswer,
+        isCorrect,
+        timeSpent: timeSpent || 0,
+        points: newPts,
+      });
     }
 
-    // Store answer details for analytics
-    player.answers.push({
-      questionIndex: room.currentQuestionIndex,
-      selectedAnswer: selectedAnswer,
-      correctAnswer: correctAnswer,
-      isCorrect: isCorrect,
-      timeSpent: timeSpent || 0,
-      points: score || 0,
-    });
-    // Log updated player for debugging (confirm lastAnswerCorrect is set)
+    // Accurately compute correct count from player's answer history
+    player.correctAnswers = player.answers.filter((a) => a.isCorrect).length;
+
     try {
-      console.log('🔎 Updated player after submit:', {
+      console.log('🔎 Updated player selection:', {
         id: player.id,
         username: player.username,
-        lastAnswerCorrect: player.lastAnswerCorrect,
+        selectedAnswer,
+        isCorrect,
         score: player.score,
       });
     } catch (e) {
-      console.warn('Could not log player after submit', e.message);
+      console.warn('Could not log player selection update', e.message);
     }
 
-    const contestants = room.players.filter((p) => !p.isHost);
-    const allAnswered = contestants.length > 0 && contestants.every((contestant) => room.questionAnsweredPlayerIds.includes(contestant.id));
-
-    console.log(`ℹ️ answeredCount=${room.questionAnsweredPlayerIds.length} contestants=${contestants.length} allAnswered=${allAnswered}`);
-
-    if (allAnswered) {
-      room.status = 'leaderboard';
-      console.log(`🏁 All answered in room ${roomCode} — moving to leaderboard`);
-      try {
-        console.log('🔔 Emitting leaderboard — players lastAnswerCorrect:', room.players.map(p => ({ id: p.id, lastAnswerCorrect: p.lastAnswerCorrect })));
-      } catch (e) {
-        console.warn('Could not log players on leaderboard', e.message);
-      }
-    }
-
+    // Broadcast room update so scores and selections sync cleanly across clients
     io.to(roomCode).emit('room_update', room);
   });
 
+  // Helper for auto-advancing to next question or ending game
+  const autoTimerTimeouts = new Map();
+  async function advanceQuestionOrFinish(room, roomCode, ioInstance) {
+    if (!room || room.status === 'finished') return;
+
+    const totalQuestions = room.currentQuiz?.questions?.length || 0;
+    const isLastQuestion = room.currentQuestionIndex >= totalQuestions - 1;
+
+    if (isLastQuestion) {
+      console.log(`🏆 Final question finished in room ${roomCode} -> Moving to ResultsPage`);
+      room.status = 'finished';
+      const gameDuration = room.gameStartTime ? Math.round((Date.now() - room.gameStartTime) / 1000) : 0;
+      await saveGameSession(room, gameDuration);
+      ioInstance.to(roomCode).emit('room_update', room);
+    } else {
+      console.log(`📊 Question ${room.currentQuestionIndex + 1} finished in room ${roomCode} -> Leaderboard (3.5s pause)`);
+      room.status = 'leaderboard';
+      ioInstance.to(roomCode).emit('room_update', room);
+
+      if (autoTimerTimeouts.has(roomCode)) {
+        clearTimeout(autoTimerTimeouts.get(roomCode));
+      }
+
+      const tId = setTimeout(() => {
+        autoTimerTimeouts.delete(roomCode);
+        const curRoom = rooms.get(roomCode);
+        if (curRoom && curRoom.status === 'leaderboard') {
+          curRoom.currentQuestionIndex += 1;
+          curRoom.status = 'question';
+          curRoom.questionStartTime = Date.now();
+          curRoom.questionAnsweredPlayerIds = [];
+          console.log(`➡️ Auto-advancing to Question ${curRoom.currentQuestionIndex + 1} in room ${roomCode}`);
+          ioInstance.to(roomCode).emit('room_update', curRoom);
+        }
+      }, 3500);
+
+      autoTimerTimeouts.set(roomCode, tId);
+    }
+  }
+
+  // ── Master Server Room Timer Loop ──────────────────────────────────
+  setInterval(async () => {
+    const now = Date.now();
+    for (const [roomCode, room] of rooms.entries()) {
+      if (!room || room.status !== 'question' || !room.questionStartTime) continue;
+
+      const currentQ = room.currentQuiz?.questions?.[room.currentQuestionIndex];
+      const timeLimit = currentQ?.timeLimit || 20;
+      const elapsed = Math.floor((now - room.questionStartTime) / 1000);
+
+      if (elapsed >= timeLimit) {
+        console.log(`⏰ Timer expired (${elapsed}s/${timeLimit}s) for Q${room.currentQuestionIndex + 1} in room ${roomCode}`);
+        await advanceQuestionOrFinish(room, roomCode, io);
+      }
+    }
+  }, 1000);
+
   // ── Show Leaderboard ─────────────────────────────────────────
-  socket.on('show_leaderboard', ({ roomCode }) => {
+  socket.on('show_leaderboard', async ({ roomCode }) => {
     const room = rooms.get(roomCode);
     if (!room) return;
-    room.status = 'leaderboard';
-    room.questionAnsweredPlayerIds = room.questionAnsweredPlayerIds || [];
     console.log(`🟣 Host requested leaderboard in room ${roomCode}`);
-    try {
-      console.log('🔔 Host trigger — players lastAnswerCorrect:', room.players.map(p => ({ id: p.id, lastAnswerCorrect: p.lastAnswerCorrect })));
-    } catch (e) {
-      console.warn('Could not log players on host leaderboard request', e.message);
-    }
-    io.to(roomCode).emit('room_update', room);
+    await advanceQuestionOrFinish(room, roomCode, io);
   });
 
   // ── Next Question ────────────────────────────────────────────
   socket.on('next_question', async ({ roomCode }) => {
     const room = rooms.get(roomCode);
     if (!room) return;
+
+    if (autoTimerTimeouts.has(roomCode)) {
+      clearTimeout(autoTimerTimeouts.get(roomCode));
+      autoTimerTimeouts.delete(roomCode);
+    }
 
     const totalQuestions = room.currentQuiz?.questions?.length || 0;
 
@@ -395,12 +452,9 @@ export function registerGameHandlers(io, socket) {
       room.questionStartTime = Date.now();
       room.questionAnsweredPlayerIds = [];
     } else if (totalQuestions > 0 && room.currentQuestionIndex >= totalQuestions - 1) {
-      // Last question done → finish the game
       room.status = 'finished';
       const gameDuration = room.gameStartTime ? Math.round((Date.now() - room.gameStartTime) / 1000) : 0;
       await saveGameSession(room, gameDuration);
-    } else {
-      console.warn(`⚠️ next_question called in room ${roomCode} but totalQuestions is ${totalQuestions}`);
     }
 
     io.to(roomCode).emit('room_update', room);

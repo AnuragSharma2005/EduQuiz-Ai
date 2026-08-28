@@ -9,14 +9,14 @@ import { cn } from '../utils/constants';
 
 import { useStudentStore, StudentAssessmentHistoryItem } from '../student/studentStore';
 
-const RenderAvatar = ({ avatar, className }: { avatar?: string; className?: string }) => {
+const RenderAvatar = ({ avatar, className, fallback = '🐱' }: { avatar?: string; className?: string; fallback?: string }) => {
   const isUrl = avatar && (avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('data:') || avatar.startsWith('/'));
   if (isUrl) {
     return <img src={avatar} alt="avatar" className={className} referrerPolicy="no-referrer" />;
   }
   return (
-    <div className={cn("flex items-center justify-center bg-sky-950/80 border border-sky-500/30 text-2xl font-bold rounded-2xl", className)}>
-      {avatar || '🎓'}
+    <div className={cn("flex items-center justify-center bg-sky-950/80 border border-sky-500/30 text-3xl font-bold rounded-2xl shadow-xl", className)}>
+      {avatar && avatar !== '🎓' ? avatar : fallback}
     </div>
   );
 };
@@ -40,9 +40,20 @@ export const ResultsPage = () => {
   const myRank = myIndex !== -1 ? myIndex + 1 : (sortedPlayers.length > 0 ? sortedPlayers.length : 1);
   const myPlayerObj = myIndex !== -1 ? sortedPlayers[myIndex] : (sortedPlayers[0] || me || { id: 'std', username: 'Student', score: 0, avatar: '🎓' });
 
-  const isWinner = myRank === 1 && (myPlayerObj?.score || 0) > 0;
-  const isLastRank = myRank === sortedPlayers.length && sortedPlayers.length > 1;
-  const isZeroScore = (myPlayerObj?.score || 0) === 0;
+  const rawCorrect = (myPlayerObj as any)?.correctAnswers;
+  const answersArr = (myPlayerObj as any)?.answers;
+  const computedCorrect = typeof rawCorrect === 'number' && rawCorrect > 0
+    ? rawCorrect
+    : Array.isArray(answersArr) && answersArr.length > 0
+      ? answersArr.filter((a: any) => a.isCorrect).length
+      : Math.min(
+          currentQuiz?.questions?.length || 10,
+          Math.max(0, Math.round((myPlayerObj?.score || 0) / 1000))
+        );
+
+  const isZeroScore = (myPlayerObj?.score || 0) === 0 || computedCorrect === 0;
+  const isWinner = myRank === 1 && !isZeroScore;
+  const isLastRank = !isWinner && (isZeroScore || myRank === sortedPlayers.length);
 
   useEffect(() => {
     if (isWinner) {
@@ -64,13 +75,13 @@ export const ResultsPage = () => {
         date: new Date().toLocaleDateString('en-GB'),
         score: myPlayerObj?.score || me?.score || 0,
         totalQuestions: totalQ,
-        correctAnswers: (myPlayerObj as any)?.correctAnswers || Math.min(totalQ, Math.max(0, Math.floor((myPlayerObj?.score || 0) / 1000))),
+        correctAnswers: computedCorrect,
         rank: myRank,
         totalParticipants: sortedPlayers.length || 1,
       };
       addHistoryItem(historyItem);
     }
-  }, [isStudentAuth, me, roomCode, currentQuiz, myRank, myPlayerObj, sortedPlayers.length, addHistoryItem, isWinner]);
+  }, [isStudentAuth, me, roomCode, currentQuiz, myRank, myPlayerObj, sortedPlayers.length, addHistoryItem, isWinner, computedCorrect]);
 
   const handlePlayAgain = () => {
     resetGame();
@@ -90,10 +101,10 @@ export const ResultsPage = () => {
             "mb-10 p-8 rounded-3xl border text-center shadow-2xl relative overflow-hidden transition-all",
             isWinner
               ? "bg-gradient-to-r from-amber-950/90 via-emerald-950/80 to-indigo-950/90 border-amber-500/50 shadow-amber-950/50"
-              : isLastRank
-                ? "bg-gradient-to-r from-rose-950/90 via-red-950/80 to-slate-950/90 border-rose-500/50 shadow-rose-950/50"
-                : isZeroScore
-                  ? "bg-gradient-to-r from-slate-950/90 via-indigo-950/80 to-purple-950/90 border-indigo-500/40 shadow-sky-950/50"
+              : isZeroScore
+                ? "bg-gradient-to-r from-rose-950/95 via-red-950/90 to-slate-950/95 border-rose-500/60 shadow-rose-950/60"
+                : isLastRank
+                  ? "bg-gradient-to-r from-rose-950/90 via-red-950/80 to-slate-950/90 border-rose-500/50 shadow-rose-950/50"
                   : "bg-gradient-to-r from-indigo-950/80 via-blue-900/60 to-purple-950/80 border-sky-500/30 shadow-sky-950/50"
           )}
         >
@@ -102,6 +113,10 @@ export const ResultsPage = () => {
             {isWinner ? (
               <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
                 👑 CHAMPION VICTORY
+              </span>
+            ) : isZeroScore ? (
+              <span className="px-3.5 py-1 rounded-full bg-rose-500/30 text-rose-300 border border-rose-500/50 font-black animate-pulse">
+                ❌ YOU LOST — 0 POINTS
               </span>
             ) : isLastRank ? (
               <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
@@ -117,18 +132,20 @@ export const ResultsPage = () => {
           <h2 className="text-3xl sm:text-5xl font-black italic uppercase tracking-tight text-white">
             {isWinner
               ? '🎉 WINNER! CHAMPION RANK #1'
-              : isLastRank
-                ? `❌ YOU LOST! RANK #${myRank} OUT OF ${sortedPlayers.length || 1}`
-                : `YOUR RANK: #${myRank} OUT OF ${sortedPlayers.length || 1}`}
+              : isZeroScore
+                ? `❌ YOU LOST! RANK #${myRank} (0 POINTS SCORED)`
+                : isLastRank
+                  ? `❌ YOU LOST! RANK #${myRank} OUT OF ${sortedPlayers.length || 1}`
+                  : `YOUR RANK: #${myRank} OUT OF ${sortedPlayers.length || 1}`}
           </h2>
 
           <p className="mt-3 text-sm sm:text-base font-semibold text-slate-300 max-w-xl mx-auto">
             {isWinner
               ? 'Outstanding performance! You conquered the battle arena with the highest score.'
-              : isLastRank
-                ? 'You finished in last place. Don’t give up — study hard and try again to climb the leaderboard!'
-                : isZeroScore
-                  ? 'No options selected or 0 points scored. Review the materials and attempt again next round!'
+              : isZeroScore
+                ? 'All options selected were incorrect or timed out. Study hard and attempt again next round!'
+                : isLastRank
+                  ? 'You finished in last place. Don’t give up — study hard and try again to climb the leaderboard!'
                   : `Great effort! You secured Rank #${myRank}. Keep pushing for Rank #1 next time!`}
           </p>
 
@@ -137,7 +154,7 @@ export const ResultsPage = () => {
               Score: {myPlayerObj?.score || 0} pts
             </span>
             <span className="bg-white/10 px-5 py-2 rounded-2xl border border-white/10 text-emerald-300 font-black">
-              Correct: {(myPlayerObj as any)?.correctAnswers || 0}
+              Correct: {computedCorrect}
             </span>
             <span className="bg-white/10 px-5 py-2 rounded-2xl border border-white/10 text-sky-300 font-black">
               Rank: #{myRank} / {sortedPlayers.length || 1}
@@ -155,7 +172,7 @@ export const ResultsPage = () => {
         </motion.div>
 
         {/* Podium */}
-        <div className="flex items-end justify-center gap-4 mb-24 h-80">
+        <div className="flex items-end justify-center gap-4 mb-24 h-80 max-w-2xl mx-auto">
           {/* 2nd Place */}
           {top3[1] && (
             <motion.div
@@ -164,7 +181,7 @@ export const ResultsPage = () => {
               transition={{ delay: 0.5, duration: 0.8 }}
               className="flex-1 flex flex-col items-center"
             >
-              <RenderAvatar avatar={top3[1].avatar} className="w-16 h-16 rounded-2xl mb-4 border-4 border-slate-300 shadow-xl" />
+              <RenderAvatar avatar={top3[1].avatar} fallback="🐶" className="w-16 h-16 rounded-2xl mb-4 border-4 border-slate-300 shadow-xl" />
               <div className="w-full bg-slate-300/20 border-t-4 border-slate-300 rounded-t-3xl p-4 flex flex-col items-center justify-center flex-1">
                 <span className="text-2xl font-black text-slate-300 mb-1">2nd</span>
                 <span className="font-bold truncate w-full text-center">{top3[1].username || 'Student'}</span>
@@ -182,8 +199,12 @@ export const ResultsPage = () => {
               className="flex-1 flex flex-col items-center z-10"
             >
               <div className="relative mb-4">
-                <Trophy className="absolute -top-10 left-1/2 -translate-x-1/2 text-yellow-500 w-12 h-12 animate-bounce" />
-                <RenderAvatar avatar={top3[0].avatar} className="w-24 h-24 rounded-3xl border-4 border-yellow-500 shadow-2xl shadow-yellow-500/20" />
+                {top3[0].score > 0 ? (
+                  <Trophy className="absolute -top-10 left-1/2 -translate-x-1/2 text-yellow-500 w-12 h-12 animate-bounce" />
+                ) : (
+                  <span className="absolute -top-10 left-1/2 -translate-x-1/2 text-3xl">😿</span>
+                )}
+                <RenderAvatar avatar={top3[0].avatar} fallback={top3[0].score > 0 ? "🐱" : "😿"} className="w-24 h-24 rounded-3xl border-4 border-yellow-500 shadow-2xl shadow-yellow-500/20" />
               </div>
               <div className="w-full bg-yellow-500/20 border-t-4 border-yellow-500 rounded-t-3xl p-6 flex flex-col items-center justify-center flex-1">
                 <span className="text-4xl font-black text-yellow-500 mb-1">1st</span>
@@ -201,7 +222,7 @@ export const ResultsPage = () => {
               transition={{ delay: 0.8, duration: 0.8 }}
               className="flex-1 flex flex-col items-center"
             >
-              <RenderAvatar avatar={top3[2].avatar} className="w-16 h-16 rounded-2xl mb-4 border-4 border-amber-600 shadow-xl" />
+              <RenderAvatar avatar={top3[2].avatar} fallback="🦊" className="w-16 h-16 rounded-2xl mb-4 border-4 border-amber-600 shadow-xl" />
               <div className="w-full bg-amber-600/20 border-t-4 border-amber-600 rounded-t-3xl p-4 flex flex-col items-center justify-center flex-1">
                 <span className="text-2xl font-black text-amber-600 mb-1">3rd</span>
                 <span className="font-bold truncate w-full text-center">{top3[2].username || 'Student'}</span>
