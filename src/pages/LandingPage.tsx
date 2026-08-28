@@ -162,6 +162,8 @@ export const LandingPage = () => {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isPortalModalOpen, setIsPortalModalOpen] = useState(false);
 
+  const [roomError, setRoomError] = useState('');
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePos({ x: e.clientX, y: e.clientY });
@@ -170,7 +172,15 @@ export const LandingPage = () => {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  const [roomError, setRoomError] = useState('');
+  useEffect(() => {
+    if (isStudentAuth && currentStudent?.name) {
+      setUsername(currentStudent.name);
+    } else if (isTeacherAuth && currentTeacher?.name) {
+      setUsername(currentTeacher.name);
+    } else if (user?.username) {
+      setUsername(user.username);
+    }
+  }, [isStudentAuth, currentStudent, isTeacherAuth, currentTeacher, user]);
 
   const handleJoin = async () => {
     // If student is not logged in, navigate to student login portal
@@ -201,10 +211,12 @@ export const LandingPage = () => {
       console.warn('Backend session validation skipped:', e);
     }
 
+    const finalUsername = isStudentAuth ? (currentStudent?.name || username || 'Student') : (username || 'Player');
+
     const newPlayer = {
-      id: Math.random().toString(36).substr(2, 9),
-      username,
-      avatar: AVATARS[0],
+      id: isStudentAuth && currentStudent?.id ? currentStudent.id : Math.random().toString(36).substr(2, 9),
+      username: finalUsername,
+      avatar: (isStudentAuth && currentStudent?.avatar) ? currentStudent.avatar : AVATARS[0],
       score: 0,
       isReady: false,
       isHost: false,
@@ -430,12 +442,33 @@ export const LandingPage = () => {
                   </div>
                   <div className="flex-1 w-full space-y-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] ml-2">Username</label>
+                      <div className="flex items-center justify-between ml-2">
+                        <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Username</label>
+                        {isStudentAuth && (
+                          <span
+                            onClick={() => {
+                              useStudentStore.getState().setSelectedTab('profile');
+                              navigate('/student?tab=profile');
+                            }}
+                            className="text-[9px] font-black uppercase text-sky-400 hover:text-sky-300 cursor-pointer flex items-center gap-1 bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 rounded-full transition-all"
+                            title="Go to Student Profile to edit your name"
+                          >
+                            🔒 Synced from Profile (Edit)
+                          </span>
+                        )}
+                      </div>
                       <Input
                         placeholder="PLAYER_NAME"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="!bg-black/40 !border-white/5 !rounded-2xl font-black italic text-indigo-400 placeholder:text-white/10"
+                        value={isStudentAuth ? (currentStudent?.name || username) : username}
+                        onChange={(e) => {
+                          if (!isStudentAuth) setUsername(e.target.value);
+                        }}
+                        readOnly={isStudentAuth}
+                        disabled={isStudentAuth}
+                        className={cn(
+                          "!bg-black/40 !border-white/5 !rounded-2xl font-black italic text-indigo-400 placeholder:text-white/10",
+                          isStudentAuth && "!cursor-not-allowed !opacity-90 border-sky-500/40"
+                        )}
                       />
                     </div>
                     <div className="space-y-2">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Zap, User, LogOut, Sword, Trophy, Home, Sparkles } from 'lucide-react';
 import { useStudentStore } from './studentStore';
 import { StudentLoginModal } from './StudentLoginModal';
@@ -14,6 +14,7 @@ import { LiveChatWidget } from '../components/LiveChatWidget';
 
 export const StudentLayout: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     isStudentAuth,
     currentStudent,
@@ -22,6 +23,15 @@ export const StudentLayout: React.FC = () => {
     setSelectedTab,
   } = useStudentStore();
   const { status } = useGameStore();
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam === 'profile') {
+      setSelectedTab('profile');
+    }
+  }, [location.search, setSelectedTab]);
+
   React.useEffect(() => {
     if (status === 'starting' || status === 'question' || status === 'leaderboard') {
       if (selectedTab !== 'quiz') {
