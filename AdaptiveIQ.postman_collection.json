@@ -1,0 +1,267 @@
+{
+  "info": {
+    "name": "AdaptiveIQ API",
+    "description": "HTTP API collection for the AdaptiveIQ backend. Set baseUrl to your backend URL (default: http://localhost:5001). Signup/login save the returned JWT as the collection variable token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5001" },
+    { "key": "token", "value": "" },
+    { "key": "quizId", "value": "REPLACE_WITH_QUIZ_ID" },
+    { "key": "sessionId", "value": "REPLACE_WITH_SESSION_ID" },
+    { "key": "teacherId", "value": "REPLACE_WITH_TEACHER_ID" },
+    { "key": "roomCode", "value": "DEMO01" },
+    { "key": "email", "value": "teacher@example.com" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET Health status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST Signup",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const data = pm.response.json();", "if (data.token) pm.collectionVariables.set('token', data.token);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"demo_user\",\n  \"email\": \"demo@example.com\",\n  \"password\": \"Password123\",\n  \"fullName\": \"Demo User\",\n  \"role\": \"teacher\",\n  \"department\": \"Computer Science\"\n}" },
+            "url": "{{baseUrl}}/api/auth/signup"
+          }
+        },
+        {
+          "name": "POST Login",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const data = pm.response.json();", "if (data.token) pm.collectionVariables.set('token', data.token);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"demo@example.com\",\n  \"password\": \"Password123\"\n}" },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "POST Logout (Bearer token)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/logout"
+          }
+        },
+        {
+          "name": "GET Current user (Bearer token)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        },
+        {
+          "name": "PUT Update profile (Bearer token)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Demo Teacher\",\n  \"avatar\": \"teacher-avatar.png\"\n}" },
+            "url": "{{baseUrl}}/api/auth/profile"
+          }
+        },
+        {
+          "name": "POST Change password (Bearer token)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"Password123\",\n  \"newPassword\": \"NewPassword123\"\n}" },
+            "url": "{{baseUrl}}/api/auth/change-password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Quizzes",
+      "item": [
+        {
+          "name": "GET List quizzes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/quizzes?limit=100&skip=0"
+          }
+        },
+        {
+          "name": "GET List quizzes by teacher/email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/quizzes?email={{email}}&limit=100&skip=0"
+          }
+        },
+        {
+          "name": "GET Quiz by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/quizzes/{{quizId}}"
+          }
+        },
+        {
+          "name": "POST Generate AI quiz",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"topic\": \"Photosynthesis\",\n  \"count\": 5,\n  \"difficulty\": \"Medium\"\n}" },
+            "url": "{{baseUrl}}/api/quizzes/generate"
+          }
+        },
+        {
+          "name": "POST Create quiz",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Demo Science Quiz\",\n  \"category\": \"Science\",\n  \"difficulty\": \"Medium\",\n  \"timePerQuestion\": 20,\n  \"createdBy\": \"{{email}}\",\n  \"teacherName\": \"Demo Teacher\",\n  \"questions\": [\n    {\n      \"text\": \"What do plants absorb from the atmosphere?\",\n      \"options\": [\"Oxygen\", \"Carbon dioxide\", \"Nitrogen\", \"Hydrogen\"],\n      \"correctAnswer\": 1,\n      \"timeLimit\": 20\n    }\n  ]\n}" },
+            "url": "{{baseUrl}}/api/quizzes"
+          }
+        },
+        {
+          "name": "PUT Update quiz",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Updated Demo Science Quiz\",\n  \"category\": \"Science\",\n  \"difficulty\": \"Easy\",\n  \"timePerQuestion\": 20,\n  \"questions\": [\n    {\n      \"text\": \"What do plants absorb from the atmosphere?\",\n      \"options\": [\"Oxygen\", \"Carbon dioxide\", \"Nitrogen\", \"Hydrogen\"],\n      \"correctAnswer\": 1,\n      \"timeLimit\": 20\n    }\n  ]\n}" },
+            "url": "{{baseUrl}}/api/quizzes/{{quizId}}"
+          }
+        },
+        {
+          "name": "DELETE Quiz",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/quizzes/{{quizId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sessions",
+      "item": [
+        {
+          "name": "GET List sessions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/sessions?limit=100&skip=0"
+          }
+        },
+        {
+          "name": "GET List sessions by host/email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/sessions?hostEmail={{email}}&limit=100&skip=0"
+          }
+        },
+        {
+          "name": "GET Students and session history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/sessions/students"
+          }
+        },
+        {
+          "name": "GET Session by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/sessions/{{sessionId}}"
+          }
+        },
+        {
+          "name": "GET Validate room code",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/sessions/validate/{{roomCode}}"
+          }
+        },
+        {
+          "name": "POST Save game session",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"roomCode\": \"{{roomCode}}\",\n  \"quizTitle\": \"Demo Science Quiz\",\n  \"quizCategory\": \"Science\",\n  \"quizDifficulty\": \"Medium\",\n  \"totalQuestions\": 1,\n  \"hostEmail\": \"{{email}}\",\n  \"hostName\": \"Demo Teacher\",\n  \"status\": \"finished\",\n  \"players\": [\n    {\n      \"username\": \"demo_student\",\n      \"score\": 100,\n      \"correctAnswers\": 1,\n      \"rank\": 1\n    }\n  ]\n}" },
+            "url": "{{baseUrl}}/api/sessions"
+          }
+        },
+        {
+          "name": "DELETE Session",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/sessions/{{sessionId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "GET Teachers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/admin/teachers"
+          }
+        },
+        {
+          "name": "POST Create teacher",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Demo Teacher\",\n  \"email\": \"new.teacher@example.com\",\n  \"password\": \"Password123\",\n  \"department\": \"Computer Science\"\n}" },
+            "url": "{{baseUrl}}/api/admin/create-teacher"
+          }
+        },
+        {
+          "name": "PUT Update teacher",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Teacher\",\n  \"department\": \"Science\",\n  \"status\": \"Active\"\n}" },
+            "url": "{{baseUrl}}/api/admin/teachers/{{teacherId}}"
+          }
+        },
+        {
+          "name": "DELETE Teacher",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/admin/teachers/{{teacherId}}"
+          }
+        },
+        {
+          "name": "GET Students",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/admin/students"
+          }
+        }
+      ]
+    }
+  ]
+}

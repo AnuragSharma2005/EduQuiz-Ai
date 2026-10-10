@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#111827"/><stop offset="1" stop-color="#090b14"/></linearGradient><linearGradient id="accent"><stop stop-color="#fb923c"/><stop offset="1" stop-color="#facc15"/></linearGradient></defs>
+  <rect width="1200" height="720" rx="32" fill="url(#bg)"/><rect x="34" y="34" width="1132" height="652" rx="24" fill="#0b1020" stroke="#29334d" stroke-width="2"/>
+  <circle cx="76" cy="76" r="8" fill="#fb7185"/><circle cx="104" cy="76" r="8" fill="#fbbf24"/><circle cx="132" cy="76" r="8" fill="#34d399"/>
+  <text x="170" y="84" fill="#94a3b8" font-family="Arial,sans-serif" font-size="20">backend/socket/gameHandlers.js</text>
+  <text x="72" y="150" fill="url(#accent)" font-family="Arial,sans-serif" font-size="38" font-weight="700">04  Live Multiplayer Game</text>
+  <text x="72" y="204" fill="#94a3b8" font-family="Arial,sans-serif" font-size="20">Socket.IO rooms let a teacher host and students join.</text>
+  <g font-family="Consolas, 'Courier New', monospace" font-size="21">
+    <text x="82" y="282" fill="#64748b">1</text><text x="130" y="282" fill="#f9a8d4">socket</text><text x="198" y="282" fill="#e2e8f0">.on(</text><text x="248" y="282" fill="#86efac">'join_room'</text><text x="368" y="282" fill="#e2e8f0">, ({ roomCode, player, quiz }) =&gt; {</text>
+    <text x="82" y="326" fill="#64748b">2</text><text x="178" y="326" fill="#c4b5fd">if</text><text x="210" y="326" fill="#e2e8f0"> (!roomCode || !player?.id) </text><text x="534" y="326" fill="#c4b5fd">return</text><text x="600" y="326" fill="#e2e8f0">;</text>
+    <text x="82" y="370" fill="#64748b">3</text><text x="178" y="370" fill="#f9a8d4">socket</text><text x="248" y="370" fill="#e2e8f0">.join(roomCode);</text>
+    <text x="82" y="414" fill="#64748b">4</text><text x="178" y="414" fill="#c4b5fd">if</text><text x="210" y="414" fill="#e2e8f0"> (!rooms.has(roomCode)) {</text>
+    <text x="82" y="458" fill="#64748b">5</text><text x="226" y="458" fill="#c4b5fd">if</text><text x="258" y="458" fill="#e2e8f0"> (player.isHost) {</text>
+    <text x="82" y="502" fill="#64748b">6</text><text x="274" y="502" fill="#e2e8f0">rooms.set(roomCode, createRoom(roomCode));</text>
+    <text x="82" y="546" fill="#64748b">7</text><text x="226" y="546" fill="#c4b5fd">else</text><text x="280" y="546" fill="#e2e8f0"> { socket.emit(</text><text x="436" y="546" fill="#86efac">'room_error'</text><text x="570" y="546" fill="#e2e8f0">, ...); }</text>
+    <text x="82" y="590" fill="#64748b">8</text><text x="178" y="590" fill="#e2e8f0">}</text>
+  </g>
+  <text x="72" y="644" fill="#64748b" font-family="Arial,sans-serif" font-size="18">AdaptiveIQ  •  CODE SNIPPET</text>
+</svg>

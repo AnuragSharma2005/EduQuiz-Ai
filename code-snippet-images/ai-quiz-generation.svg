@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#111827"/><stop offset="1" stop-color="#090b14"/></linearGradient><linearGradient id="accent"><stop stop-color="#c084fc"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs>
+  <rect width="1200" height="720" rx="32" fill="url(#bg)"/><rect x="34" y="34" width="1132" height="652" rx="24" fill="#0b1020" stroke="#29334d" stroke-width="2"/>
+  <circle cx="76" cy="76" r="8" fill="#fb7185"/><circle cx="104" cy="76" r="8" fill="#fbbf24"/><circle cx="132" cy="76" r="8" fill="#34d399"/>
+  <text x="170" y="84" fill="#94a3b8" font-family="Arial,sans-serif" font-size="20">backend/routes/quiz.routes.js</text>
+  <text x="72" y="150" fill="url(#accent)" font-family="Arial,sans-serif" font-size="38" font-weight="700">03  AI Quiz Generation</text>
+  <text x="72" y="204" fill="#94a3b8" font-family="Arial,sans-serif" font-size="20">Send topic and difficulty to the AI quiz generator.</text>
+  <g font-family="Consolas, 'Courier New', monospace" font-size="21">
+    <text x="82" y="282" fill="#64748b">1</text><text x="130" y="282" fill="#c4b5fd">const</text><text x="196" y="282" fill="#e2e8f0"> { topic, count, difficulty } = req.body;</text>
+    <text x="82" y="326" fill="#64748b">2</text><text x="130" y="326" fill="#c4b5fd">if</text><text x="162" y="326" fill="#e2e8f0"> (!topic || !topic.trim()) {</text>
+    <text x="82" y="370" fill="#64748b">3</text><text x="178" y="370" fill="#c4b5fd">return</text><text x="246" y="370" fill="#e2e8f0"> res.status(400).json({ error: </text><text x="616" y="370" fill="#86efac">'topic is required'</text><text x="838" y="370" fill="#e2e8f0"> });</text>
+    <text x="82" y="414" fill="#64748b">4</text><text x="130" y="414" fill="#e2e8f0">}</text>
+    <text x="82" y="458" fill="#64748b">5</text><text x="130" y="458" fill="#c4b5fd">const</text><text x="196" y="458" fill="#e2e8f0"> quizData = </text><text x="326" y="458" fill="#c4b5fd">await</text><text x="382" y="458" fill="#f9a8d4"> generateQuizWithAI</text><text x="592" y="458" fill="#e2e8f0">({</text>
+    <text x="82" y="502" fill="#64748b">6</text><text x="178" y="502" fill="#e2e8f0">topic: topic.trim(),</text>
+    <text x="82" y="546" fill="#64748b">7</text><text x="178" y="546" fill="#e2e8f0">count: Math.min(Math.max(Number(count) || 5, 1), 50),</text>
+    <text x="82" y="590" fill="#64748b">8</text><text x="178" y="590" fill="#e2e8f0">difficulty: difficulty || </text><text x="452" y="590" fill="#86efac">'Medium'</text><text x="550" y="590" fill="#e2e8f0">,</text>
+  </g>
+  <text x="72" y="644" fill="#64748b" font-family="Arial,sans-serif" font-size="18">AdaptiveIQ  •  CODE SNIPPET</text>
+</svg>
